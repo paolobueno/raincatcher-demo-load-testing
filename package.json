@@ -1,0 +1,24 @@
+{
+  "name": "raincatcher-demo-load-testing",
+  "version": "1.0.0",
+  "description": "Load-runner scripts to test the demo cloud app",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/feedhenry-raincatcher/raincatcher-demo-load-testing.git"
+  },
+  "keywords": [
+    "raincatcher",
+    "feedhenry",
+    "load-testing",
+    "test"
+  ],
+  "author": "FeedHenry",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/feedhenry-raincatcher/raincatcher-demo-load-testing/issues"
+  },
+  "homepage": "https://github.com/feedhenry-raincatcher/raincatcher-demo-load-testing#readme"
+}
