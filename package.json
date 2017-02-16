@@ -20,5 +20,8 @@
   "bugs": {
     "url": "https://github.com/feedhenry-raincatcher/raincatcher-demo-load-testing/issues"
   },
-  "homepage": "https://github.com/feedhenry-raincatcher/raincatcher-demo-load-testing#readme"
+  "homepage": "https://github.com/feedhenry-raincatcher/raincatcher-demo-load-testing#readme",
+  "dependencies": {
+    "load-runner": "1.0.0"
+  }
 }
