@@ -20,5 +20,12 @@
   "bugs": {
     "url": "https://github.com/feedhenry-raincatcher/raincatcher-demo-load-testing/issues"
   },
-  "homepage": "https://github.com/feedhenry-raincatcher/raincatcher-demo-load-testing#readme"
+  "homepage": "https://github.com/feedhenry-raincatcher/raincatcher-demo-load-testing#readme",
+  "dependencies": {
+    "bluebird": "3.4.7",
+    "load-runner": "1.0.0",
+    "lodash": "4.17.4",
+    "request": "2.79.0",
+    "yargs": "6.6.0"
+  }
 }
