@@ -1,6 +1,7 @@
 'use strict';
 
 const lr = require('load-runner')();
+const Promise = require('bluebird');
 const request = require('request');
 
 const requestBodyUtils = require('../util/sync_request_bodies');

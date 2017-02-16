@@ -1,6 +1,7 @@
 'use strict';
 
 const lr = require('load-runner')();
+const Promise = require('bluebird');
 
 /*
  * Dummy test does 3 async actions taking 200, 400 & 800 milliseconds, in that order
