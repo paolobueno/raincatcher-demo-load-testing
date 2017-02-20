@@ -1,10 +1,13 @@
 'use strict';
 
+const crypto = require('crypto');
 const lr = require('load-runner')();
 const Promise = require('bluebird');
-const request = require('request');
+const rp = require('request-promise');
+const util = require('util');
 
 const requestBodyUtils = require('../util/sync_request_bodies');
+const clientIdentifier = `${crypto.randomBytes(16).toString('hex')}_${Date.now()}`;
 
 const argv = require('yargs')
       .reset()
@@ -28,17 +31,33 @@ const argv = require('yargs')
       })
       .argv;
 
-const fhRequest = request.defaults({
-  headers: requestBodyUtils.getSyncRequestHeaders()
-});
+/**
+ * Configures defaults in a custom request-promise instance
+ *
+ * @param {string} clientIdentifier
+ * @param {string} sessionToken
+ * @returns {object} a request-promise instance
+ */
+function configureRequest(clientIdentifier, sessionToken) {
+  const optionalHeaders = {
+    'X-FH-cuid': clientIdentifier
+  };
 
-new Promise(login)
-  .then(() => lr.finish('ok'))
-  .catch(() => lr.finish('failed'));
+  if (sessionToken) {
+    optionalHeaders['X-FH-sessionToken'] = sessionToken;
+  }
 
-function login(resolve, reject) {
-  lr.actStart('LOGIN');
+  return rp.defaults({
+    headers: requestBodyUtils.getSyncRequestHeaders(optionalHeaders)
+  });
+}
 
+/**
+ * Test step: login to Raincatcher cloud app
+ * @returns {promise} A promise that resolves with a session token
+ */
+function login() {
+  const fhRequest = configureRequest(clientIdentifier);
   const reqBody = {
     "params": {
       "userId": argv.username,
@@ -46,15 +65,108 @@ function login(resolve, reject) {
     }
   };
 
-  fhRequest.post({
-    url: `${argv.app}/box/srv/1.1/admin/authpolicy/auth`,
-    body: reqBody,
-    json: true
-  }, (err, httpResponse, resBody) => {
-    if (err) {
-      return reject(err);
-    }
-    lr.actEnd('LOGIN');
-    return resolve(resBody);
+  return new Promise(resolve => {
+    lr.actStart('Login');
+    return fhRequest.post({
+      url: `${argv.app}/box/srv/1.1/admin/authpolicy/auth`,
+      body: reqBody,
+      json: true
+    })
+    .then(resBody => {
+      lr.actEnd('Login');
+      return resolve(resBody.sessionToken);
+    });
   });
 }
+
+/**
+ * Test step: Initial sync request to get dataset hash
+ * @param {string} sessionToken - the token from the login step
+ * @returns {promise} A promise that resolves with an object
+ * containing session token and dataset hash
+ */
+function initialSync(sessionToken) {
+  const myRequest = configureRequest(clientIdentifier, sessionToken);
+  const reqBody = requestBodyUtils.getSyncRequestBody({
+    dataset_id: 'workorders',
+    query_params: {
+      "filter": {
+        "key": "assignee",
+        "value": "rkX1fdSH"
+      }
+    },
+    meta_data: {
+      clientIdentifier: clientIdentifier
+    },
+    pending: []
+  });
+
+  return new Promise(resolve => {
+    lr.actStart('Initial Sync');
+    return myRequest.post({
+      url: `${argv.app}/mbaas/sync/workorders`,
+      body: reqBody,
+      json: true
+    }).then(resBody => {
+      lr.log(`Sync response: ${util.inspect(resBody.records)}`);
+      lr.actEnd('Initial Sync');
+
+      const resolution = {
+        sessionToken: sessionToken,
+        serverHash: resBody.hash
+      };
+      return resolve(resolution);
+    });
+  });
+}
+
+/**
+ * Test step: SyncRecords request to get the data from the server
+ * @param {object} previousResolution - contains session token and dataset hash
+ * @returns {promise} A promise that resolves with an object
+ * containing session token and dataset hash
+ */
+function syncRecords(previousResolution) {
+  const sessionToken = previousResolution.sessionToken;
+  const serverHash = previousResolution.serverHash;
+  const myRequest = configureRequest(clientIdentifier, sessionToken);
+  const reqBody = requestBodyUtils.getSyncRecordsRequestBody({
+    dataset_id: 'workorders',
+    query_params: {
+      "filter": {
+        "key": "assignee",
+        "value": "rkX1fdSH"
+      }
+    },
+    dataset_hash: serverHash,
+    meta_data: {
+      clientIdentifier: clientIdentifier
+    },
+    pending: []
+  });
+
+  return new Promise(resolve => {
+    lr.actStart('Sync Records');
+    return myRequest.post({
+      url: `${argv.app}/mbaas/sync/workorders`,
+      body: reqBody,
+      json: true
+    }).then(resBody => {
+      console.dir(resBody);
+      lr.actEnd('Sync Records');
+
+      const resolution = {
+        sessionToken: sessionToken,
+        serverHash: resBody.hash
+      };
+      return resolve(resolution);
+    });
+  });
+}
+
+// Execution starts here
+login()
+  .then(initialSync)
+  .then(syncRecords)
+  .then(() => lr.finish('ok'))
+  .catch(() => lr.finish('failed'));
