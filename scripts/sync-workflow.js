@@ -71,10 +71,30 @@ function login() {
       url: `${argv.app}/box/srv/1.1/admin/authpolicy/auth`,
       body: reqBody,
       json: true
-    })
-    .then(resBody => {
+    }).then(resBody => {
       lr.actEnd('Login');
       return resolve(resBody.sessionToken);
+    });
+  });
+}
+
+/**
+ * Test step: logout / revoke session
+ * @param {} previousResolution - Contains sessionToken
+ * @returns {promise} A promise that doesn't return anything
+ */
+function logout(previousResolution) {
+  const fhRequest = configureRequest(clientIdentifier, previousResolution.sessionToken);
+
+  return new Promise(resolve => {
+    lr.actStart('Logout');
+    return fhRequest.post({
+      url: `${argv.app}/box/srv/1.1/admin/authpolicy/revokesession`,
+      body: {},
+      json: true
+    }).then(() => {
+      lr.actEnd('Logout');
+      return resolve();
     });
   });
 }
@@ -86,7 +106,7 @@ function login() {
  * containing session token and dataset hash
  */
 function initialSync(sessionToken) {
-  const myRequest = configureRequest(clientIdentifier, sessionToken);
+  const fhRequest = configureRequest(clientIdentifier, sessionToken);
   const reqBody = requestBodyUtils.getSyncRequestBody({
     dataset_id: 'workorders',
     query_params: {
@@ -103,12 +123,12 @@ function initialSync(sessionToken) {
 
   return new Promise(resolve => {
     lr.actStart('Initial Sync');
-    return myRequest.post({
+    return fhRequest.post({
       url: `${argv.app}/mbaas/sync/workorders`,
       body: reqBody,
       json: true
     }).then(resBody => {
-      lr.log(`Sync response: ${util.inspect(resBody.records)}`);
+      // lr.log(`Sync response: ${util.inspect(resBody.records)}`);
       lr.actEnd('Initial Sync');
 
       const resolution = {
@@ -129,7 +149,7 @@ function initialSync(sessionToken) {
 function syncRecords(previousResolution) {
   const sessionToken = previousResolution.sessionToken;
   const serverHash = previousResolution.serverHash;
-  const myRequest = configureRequest(clientIdentifier, sessionToken);
+  const fhRequest = configureRequest(clientIdentifier, sessionToken);
   const reqBody = requestBodyUtils.getSyncRecordsRequestBody({
     dataset_id: 'workorders',
     query_params: {
@@ -147,12 +167,11 @@ function syncRecords(previousResolution) {
 
   return new Promise(resolve => {
     lr.actStart('Sync Records');
-    return myRequest.post({
+    return fhRequest.post({
       url: `${argv.app}/mbaas/sync/workorders`,
       body: reqBody,
       json: true
     }).then(resBody => {
-      console.dir(resBody);
       lr.actEnd('Sync Records');
 
       const resolution = {
@@ -168,5 +187,6 @@ function syncRecords(previousResolution) {
 login()
   .then(initialSync)
   .then(syncRecords)
+  .then(logout)
   .then(() => lr.finish('ok'))
   .catch(() => lr.finish('failed'));
