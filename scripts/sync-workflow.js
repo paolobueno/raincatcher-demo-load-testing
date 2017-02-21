@@ -4,8 +4,8 @@ const crypto = require('crypto');
 const lr = require('load-runner')();
 const Promise = require('bluebird');
 const rp = require('request-promise');
-const util = require('util');
 
+const login = require('../util/login');
 const requestBodyUtils = require('../util/sync_request_bodies');
 const clientIdentifier = `${crypto.randomBytes(16).toString('hex')}_${Date.now()}`;
 
@@ -49,32 +49,6 @@ function configureRequest(clientIdentifier, sessionToken) {
 
   return rp.defaults({
     headers: requestBodyUtils.getSyncRequestHeaders(optionalHeaders)
-  });
-}
-
-/**
- * Test step: login to Raincatcher cloud app
- * @returns {promise} A promise that resolves with a session token
- */
-function login() {
-  const fhRequest = configureRequest(clientIdentifier);
-  const reqBody = {
-    "params": {
-      "userId": argv.username,
-      "password": argv.password
-    }
-  };
-
-  return new Promise(resolve => {
-    lr.actStart('Login');
-    return fhRequest.post({
-      url: `${argv.app}/box/srv/1.1/admin/authpolicy/auth`,
-      body: reqBody,
-      json: true
-    }).then(resBody => {
-      lr.actEnd('Login');
-      return resolve(resBody.sessionToken);
-    });
   });
 }
 
@@ -183,8 +157,9 @@ function syncRecords(previousResolution) {
   });
 }
 
+
 // Execution starts here
-login()
+login(lr, configureRequest(clientIdentifier), argv.app, argv.username, argv.password)
   .then(initialSync)
   .then(syncRecords)
   .then(logout)
