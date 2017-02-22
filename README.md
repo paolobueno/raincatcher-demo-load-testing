@@ -24,5 +24,12 @@ Missing required arguments: app, username, password, numUsers, concurrency
 Here's an example of how to run the setup script to create 100 users at a concurrency of 10:
 
 ```bash
-node setup/usersWorkorders.js -a https://mycloudapp.mydomain.tld -u trever -p 123 -n 100 -c 10
+./setup/usersWorkorders.js -a https://mycloudapp.mydomain.tld -u trever -p 123 -n 100 -c 10
+```
+
+npm is also configured to be able to run this script as `setup`, just
+ remember the `--` to separate npm args from the script args:
+
+``` bash
+npm run setup -- -a https://mycloudapp.mydomain.tld -u trever -p 123 -n 100 -c 10
 ```
