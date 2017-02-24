@@ -18,6 +18,7 @@ module.exports = function configureRequest(clientIdentifier, sessionToken) {
   }
 
   return rp.defaults({
-    headers: requestBodyUtils.getSyncRequestHeaders(optionalHeaders)
+    headers: requestBodyUtils.getSyncRequestHeaders(optionalHeaders),
+    json: true
   });
 };

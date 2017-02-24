@@ -6,6 +6,7 @@ const makeUser = require('../util/fixtures/makeUser');
 const makeWorkorder = require('../util/fixtures/makeWorkorder');
 const makeWorkflow = require('../util/fixtures/makeWorkflow');
 const makeMessage = require('../util/fixtures/makeMessage');
+const createUserAndGroup = require('../util/createUserAndGroup');
 const Promise = require('bluebird');
 
 function urlFor(baseUrl, dataset) {
@@ -64,7 +65,7 @@ module.exports = function(runner, argv) {
 
     return syncPromise
     .then(() => Promise.all([
-      create('user', makeUser(1)),
+      createUserAndGroup(request, baseUrl, makeUser(1)),
       create('workflows', makeWorkflow(1))
     ]))
 
@@ -80,6 +81,7 @@ module.exports = function(runner, argv) {
       runner.actEnd('Portal: initialSync');
       runner.actEnd('Portal Flow');
       return Promise.resolve(previousResolution);
-    });
+    })
+    .catch(console.error);
   };
 };

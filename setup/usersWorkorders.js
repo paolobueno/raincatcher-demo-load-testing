@@ -10,6 +10,7 @@ const recordUtils = require('../util/generate_record.js');
 const requestBodyUtils = require('../util/sync_request_bodies');
 const makeUser = require('../util/fixtures/makeUser');
 const makeWorkorder = require('../util/fixtures/makeWorkorder');
+const createUserAndGroup = require('../util/createUserAndGroup');
 
 const argv = require('yargs')
       .reset()
@@ -55,22 +56,15 @@ function postUsers(sessionToken, numUsers, concurrency) {
   process.stdout.write(`Creating users at a concurrency of ${concurrency}`);
   return Promise.map(users, user => {
     process.stdout.write('.');
-    return sessionRequest.post({
-      url: `${argv.app}/api/wfm/user`,
-      body: user
-    })
-      .then(createdUser => sessionRequest.post({
-        url: `${argv.app}/api/wfm/membership`,
-        body: {group: createdUser.group, user: createdUser.id}
-      }));
+    return createUserAndGroup(sessionRequest, argv.app, user);
   }, {concurrency: concurrency}) // concurrency of users to process
-    .then(membershipResultsArray => {
+    .then(users => {
       console.log('done!');
       return {
         sessionRequest: sessionRequest,
-        users: membershipResultsArray.map(res => res.user)
+        users: _.map(users, 'id')
       };
-    });
+    }).catch(console.error);
 }
 
 function initialSync(previousResolution) {
