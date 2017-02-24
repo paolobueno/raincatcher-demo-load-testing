@@ -54,7 +54,7 @@ module.exports = function(runner, argv) {
 
     // sync everything
     runner.actStart('Portal: initialSync');
-    var syncPromise = Promise.all([
+    const syncPromise = Promise.all([
       doSync('workorders'),
       doSync('workflows'),
       doSync('result'),
