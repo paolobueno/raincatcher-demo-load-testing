@@ -6,15 +6,12 @@ const makeUser = require('../util/fixtures/makeUser');
 const makeWorkorder = require('../util/fixtures/makeWorkorder');
 const makeWorkflow = require('../util/fixtures/makeWorkflow');
 const Promise = require('bluebird');
-let baseUrl = '';
-let clientId = '';
-let request;
 
-function urlFor(dataset) {
+function urlFor(baseUrl, dataset) {
   return `${baseUrl}/mbaas/sync/${dataset}`;
 }
 
-function syncDataset(name) {
+function syncDataset(baseUrl, request, clientId, name) {
   const payload = requestBodyUtils.getSyncRecordsRequestBody({
     dataset_id: name,
     meta_data: {
@@ -23,13 +20,13 @@ function syncDataset(name) {
     pending: []
   });
   return request.post({
-    url: urlFor(name),
+    url: urlFor(baseUrl, name),
     body: payload,
     json: true
   }).then();
 }
 
-function create(dataset, data) {
+function createRecord(baseUrl, request, clientId, dataset, data) {
   const payload = requestBodyUtils.getSyncRecordsRequestBody({
     fn: 'sync',
     meta_data: {
@@ -38,7 +35,7 @@ function create(dataset, data) {
     pending: [recordUtils.generateRecord(data)]
   });
   return request.post({
-    url: urlFor('workorders'),
+    url: urlFor(baseUrl, 'workorders'),
     body: payload,
     json: true
   }).then(() => data);
@@ -47,18 +44,21 @@ function create(dataset, data) {
 module.exports = function(runner, argv) {
   return function(previousResolution) {
     runner.actStart('Portal Flow');
-    baseUrl = argv.app;
-    clientId = previousResolution.clientIdentifier;
-    request = configureRequest(clientId, previousResolution.sessionToken);
+    const baseUrl = argv.app;
+    const clientId = previousResolution.clientIdentifier;
+    const request = configureRequest(clientId, previousResolution.sessionToken);
+
+    // partially apply constant params so further calls are cleaner
+    const create = createRecord.bind(this, baseUrl, request, clientId);
+    const doSync = syncDataset.bind(this, baseUrl, request, clientId);
 
     // sync everything
     runner.actStart('Portal: initialSync');
     var syncPromise = Promise.all([
-      syncDataset('workorders'),
-      syncDataset('workflows'),
-      syncDataset('result'),
-      syncDataset('messages'),
-      syncDataset('user')
+      doSync('workorders'),
+      doSync('workflows'),
+      doSync('result'),
+      doSync('messages')
     ]);
 
     return syncPromise
