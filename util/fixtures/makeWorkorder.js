@@ -1,10 +1,10 @@
-module.exports = function makeWorkorder(user) {
+module.exports = function makeWorkorder(userId, workflowId) {
   return {
-    assignee: user,
-    title: `Load test workorder for ${user}`,
+    assignee: userId,
+    title: `Load test workorder for ${userId}`,
     type: "Job Order",
     status: "New",
-    workflowId: "HJ8QkzOSH",
+    workflowId: workflowId || "HJ8QkzOSH",
     address: "The Moon, Earth Orbit",
     location: {
       "0": 4,

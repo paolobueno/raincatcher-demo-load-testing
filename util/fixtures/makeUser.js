@@ -1,5 +1,6 @@
 module.exports = function makeUser(id) {
   return {
+    "id": id,
     "password": "123",
     "name" : "Jim Loader",
     "phone" : "(999) 999 9999",
