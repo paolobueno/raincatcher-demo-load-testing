@@ -5,6 +5,7 @@ const recordUtils = require('../util/generate_record');
 const makeUser = require('../util/fixtures/makeUser');
 const makeWorkorder = require('../util/fixtures/makeWorkorder');
 const makeWorkflow = require('../util/fixtures/makeWorkflow');
+const makeMessage = require('../util/fixtures/makeMessage');
 const Promise = require('bluebird');
 
 function urlFor(baseUrl, dataset) {
@@ -69,7 +70,11 @@ module.exports = function(runner, argv) {
 
     .then(arr =>
       // ([user, workflow] => // no destructuring without flags in node 4.x :(
-      create('workorders', makeWorkorder(String(arr[0].id), String(arr[1].id))))
+      Promise.all([
+        create('workorders', makeWorkorder(String(arr[0].id), String(arr[1].id))),
+        create('messages', makeMessage(arr[0]))
+      ])
+    )
 
     .then(function() {
       runner.actEnd('Portal: initialSync');
