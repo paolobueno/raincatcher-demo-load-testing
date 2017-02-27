@@ -62,7 +62,7 @@ module.exports = function(runner, argv) {
       doSync('workflows'),
       doSync('result'),
       doSync('messages')
-    ]);
+    ]).then(() => runner.actEnd('Portal: initialSync'));
 
     return syncPromise
     .then(() => Promise.all([
@@ -79,7 +79,6 @@ module.exports = function(runner, argv) {
     )
 
     .then(function() {
-      runner.actEnd('Portal: initialSync');
       runner.actEnd('Portal Flow');
       return Promise.resolve(previousResolution);
     })
