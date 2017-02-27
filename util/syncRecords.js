@@ -1,5 +1,8 @@
+'use strict';
+
 const configureRequest = require('../util/configureRequest');
 const requestBodyUtils = require('../util/sync_request_bodies');
+
 module.exports = function syncRecords(lr, argv) {
   /**
    * Test step: SyncRecords request to get the data from the server
@@ -43,5 +46,5 @@ module.exports = function syncRecords(lr, argv) {
         return resolve(resolution);
       });
     });
-  }
-}
+  };
+};

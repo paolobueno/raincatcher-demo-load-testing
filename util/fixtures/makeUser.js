@@ -1,3 +1,5 @@
+'use strict';
+
 module.exports = function makeUser(id) {
   return {
     "id": id,

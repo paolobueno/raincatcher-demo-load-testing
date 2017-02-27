@@ -1,3 +1,5 @@
+'use strict';
+
 const rp = require('request-promise');
 const requestBodyUtils = require('./sync_request_bodies');
 

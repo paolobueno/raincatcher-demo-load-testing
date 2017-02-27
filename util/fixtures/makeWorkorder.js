@@ -1,3 +1,5 @@
+'use strict';
+
 module.exports = function makeWorkorder(userId, workflowId) {
   return {
     assignee: userId,
