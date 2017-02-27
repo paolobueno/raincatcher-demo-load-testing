@@ -1,4 +1,5 @@
 'use strict';
+
 const configureRequest = require('../util/configureRequest');
 const requestBodyUtils = require('../util/sync_request_bodies');
 const recordUtils = require('../util/generate_record');
@@ -37,7 +38,7 @@ function createRecord(baseUrl, request, clientId, dataset, data) {
     pending: [recordUtils.generateRecord(data)]
   });
   return request.post({
-    url: urlFor(baseUrl, 'workorders'),
+    url: urlFor(baseUrl, dataset),
     body: payload,
     json: true
   }).then(() => data);
