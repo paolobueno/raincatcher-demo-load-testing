@@ -64,19 +64,31 @@ module.exports = function portalFlow(runner, argv) {
       doSync('messages')
     ]).then(() => runner.actEnd('Portal: initialSync'));
 
-    return syncPromise
-    .then(() => Promise.all([
-      createUserAndGroup(request, baseUrl, makeUser(1)),
-      create('workflows', makeWorkflow(1))
+    return syncPromise.then(() => Promise.all([
+      Promise.resolve(runner.actStart('Portal: create user and group'))
+        .then(() => createUserAndGroup(request, baseUrl, makeUser(1)))
+        .then(res => {
+          runner.actEnd('Portal: create user and group');
+          return res;
+        }),
+      Promise.resolve(runner.actStart('Portal: create workflow'))
+        .then(() => create('workflows', makeWorkflow(1)))
+        .then(res => {
+          runner.actEnd('Portal: create workflow');
+          return res;
+        }),
     ]))
 
     .then(arr =>
       // ([user, workflow] => // no destructuring without flags in node 4.x :(
       Promise.all([
-        create('workorders', makeWorkorder(String(arr[0].id), String(arr[1].id))),
-        create('messages', makeMessage(arr[0]))
-      ])
-    )
+        Promise.resolve(runner.actStart('Portal: create workorder'))
+          .then(() => create('workorders', makeWorkorder(String(arr[0].id), String(arr[1].id))))
+          .then(() => runner.actEnd('Portal: create workorder')),
+        Promise.resolve(runner.actStart('Portal: create message'))
+          .then(() => create('messages', makeMessage(arr[0])))
+          .then(() => runner.actEnd('Portal: create message'))
+      ]))
 
     .then(() => {
       runner.actEnd('Portal Flow');
