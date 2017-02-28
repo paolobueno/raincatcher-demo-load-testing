@@ -26,7 +26,7 @@ function syncDataset(baseUrl, request, clientId, name) {
     url: urlFor(baseUrl, name),
     body: payload,
     json: true
-  }).then();
+  });
 }
 
 function createRecord(baseUrl, request, clientId, dataset, data) {
