@@ -1,8 +1,8 @@
 'use strict';
 
 const configureRequest = require('../util/configureRequest');
-const requestBodyUtils = require('../util/sync_request_bodies');
-const recordUtils = require('../util/generate_record');
+const syncDataset = require('../util/syncDataset');
+const createRecord = require('../util/createRecord');
 const makeUser = require('../util/fixtures/makeUser');
 const makeWorkorder = require('../util/fixtures/makeWorkorder');
 const makeWorkflow = require('../util/fixtures/makeWorkflow');
@@ -10,40 +10,6 @@ const makeMessage = require('../util/fixtures/makeMessage');
 const createUserAndGroup = require('../util/createUserAndGroup');
 const promiseAct = require('../util/promiseAct');
 const Promise = require('bluebird');
-
-function urlFor(baseUrl, dataset) {
-  return `${baseUrl}/mbaas/sync/${dataset}`;
-}
-
-function syncDataset(baseUrl, request, clientId, name) {
-  const payload = requestBodyUtils.getSyncRecordsRequestBody({
-    dataset_id: name,
-    meta_data: {
-      clientIdentifier: clientId
-    },
-    pending: []
-  });
-  return request.post({
-    url: urlFor(baseUrl, name),
-    body: payload,
-    json: true
-  });
-}
-
-function createRecord(baseUrl, request, clientId, dataset, data) {
-  const payload = requestBodyUtils.getSyncRecordsRequestBody({
-    fn: 'sync',
-    meta_data: {
-      clientIdentifier: clientId
-    },
-    pending: [recordUtils.generateRecord(data)]
-  });
-  return request.post({
-    url: urlFor(baseUrl, dataset),
-    body: payload,
-    json: true
-  }).then(() => data);
-}
 
 module.exports = function portalFlow(runner, argv) {
   return function portalFlowAct(previousResolution) {
@@ -70,7 +36,8 @@ module.exports = function portalFlow(runner, argv) {
         () => create('workflows', makeWorkflow(1)))
     ]))
 
-    .spread((user, workflow) =>
+    .then(arr =>
+      // ([user, workflow] => // no destructuring without flags in node 4.x :(
       Promise.all([
         promiseAct(runner, 'Portal: create workorder',
           () => create('workorders', makeWorkorder(String(user.id), String(workflow.id)))),
