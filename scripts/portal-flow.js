@@ -79,14 +79,13 @@ module.exports = function portalFlow(runner, argv) {
         }),
     ]))
 
-    .then(arr =>
-      // ([user, workflow] => // no destructuring without flags in node 4.x :(
+    .spread((user, workflow) =>
       Promise.all([
         Promise.resolve(runner.actStart('Portal: create workorder'))
-          .then(() => create('workorders', makeWorkorder(String(arr[0].id), String(arr[1].id))))
+          .then(() => create('workorders', makeWorkorder(String(user.id), String(workflow.id))))
           .then(() => runner.actEnd('Portal: create workorder')),
         Promise.resolve(runner.actStart('Portal: create message'))
-          .then(() => create('messages', makeMessage(arr[0])))
+          .then(() => create('messages', makeMessage(user)))
           .then(() => runner.actEnd('Portal: create message'))
       ]))
 
