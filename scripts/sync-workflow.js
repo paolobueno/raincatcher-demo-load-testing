@@ -157,11 +157,21 @@ function syncRecords(previousResolution) {
   });
 }
 
+const flows = [require('./mobile-flow'), require('./portal-flow')];
+// gets current flow number
+const flowNumber = process.env.LR_FLOW_NUMBER;
+
+if (flowNumber > flows.length) {
+  lr.finish(`flow number can be max ${flows.length}`);
+} else {
+
 
 // Execution starts here
-login(lr, configureRequest(clientIdentifier), argv.app, argv.username, argv.password)
-  .then(initialSync)
-  .then(syncRecords)
-  .then(logout)
-  .then(() => lr.finish('ok'))
-  .catch(() => lr.finish('failed'));
+  login(lr, configureRequest(clientIdentifier), argv.app, argv.username, argv.password)
+    .then(initialSync)
+    .then(syncRecords)
+    .then(flows[flowNumber](lr, argv))
+    .then(logout)
+    .then(() => lr.finish('ok'))
+    .catch(() => lr.finish('failed'));
+}
