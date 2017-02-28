@@ -8,6 +8,7 @@ const makeWorkorder = require('../util/fixtures/makeWorkorder');
 const makeWorkflow = require('../util/fixtures/makeWorkflow');
 const makeMessage = require('../util/fixtures/makeMessage');
 const createUserAndGroup = require('../util/createUserAndGroup');
+const promiseAct = require('../util/promiseAct');
 const Promise = require('bluebird');
 
 function urlFor(baseUrl, dataset) {
@@ -45,7 +46,7 @@ function createRecord(baseUrl, request, clientId, dataset, data) {
 }
 
 module.exports = function portalFlow(runner, argv) {
-  return previousResolution => {
+  return function portalFlowAct(previousResolution) {
     runner.actStart('Portal Flow');
     const baseUrl = argv.app;
     const clientId = previousResolution.clientIdentifier;
@@ -55,44 +56,31 @@ module.exports = function portalFlow(runner, argv) {
     const create = createRecord.bind(this, baseUrl, request, clientId);
     const doSync = syncDataset.bind(this, baseUrl, request, clientId);
 
-    // sync everything
-    runner.actStart('Portal: initialSync');
-    const syncPromise = Promise.all([
+    const syncPromise = promiseAct(runner, 'Portal: initialSync', () => Promise.all([
       doSync('workorders'),
       doSync('workflows'),
       doSync('result'),
       doSync('messages')
-    ]).then(() => runner.actEnd('Portal: initialSync'));
+    ]));
 
     return syncPromise.then(() => Promise.all([
-      Promise.resolve(runner.actStart('Portal: create user and group'))
-        .then(() => createUserAndGroup(request, baseUrl, makeUser(1)))
-        .then(res => {
-          runner.actEnd('Portal: create user and group');
-          return res;
-        }),
-      Promise.resolve(runner.actStart('Portal: create workflow'))
-        .then(() => create('workflows', makeWorkflow(1)))
-        .then(res => {
-          runner.actEnd('Portal: create workflow');
-          return res;
-        }),
+      promiseAct(runner, 'Portal: create user and group',
+        () => createUserAndGroup(request, baseUrl, makeUser(1))),
+      promiseAct(runner, 'Portal: create workflow',
+        () => create('workflows', makeWorkflow(1)))
     ]))
 
     .spread((user, workflow) =>
       Promise.all([
-        Promise.resolve(runner.actStart('Portal: create workorder'))
-          .then(() => create('workorders', makeWorkorder(String(user.id), String(workflow.id))))
-          .then(() => runner.actEnd('Portal: create workorder')),
-        Promise.resolve(runner.actStart('Portal: create message'))
-          .then(() => create('messages', makeMessage(user)))
-          .then(() => runner.actEnd('Portal: create message'))
+        promiseAct(runner, 'Portal: create workorder',
+          () => create('workorders', makeWorkorder(String(user.id), String(workflow.id)))),
+        promiseAct(runner, 'Portal: create message',
+          () => create('messages', makeMessage(user)))
       ]))
 
     .then(() => {
       runner.actEnd('Portal Flow');
       return Promise.resolve(previousResolution);
-    })
-    .catch(console.error);
+    });
   };
 };

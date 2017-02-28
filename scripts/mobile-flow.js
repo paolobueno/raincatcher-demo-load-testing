@@ -1,4 +1,4 @@
-'use script';
+'use strict';
 
 module.exports = function mobileFlow(runner, argv) {
   return previousResolution => {
