@@ -1,3 +1,4 @@
+'use strict';
 const Promise = require('bluebird');
 /**
  * Wraps the start and end of an Act in a Promise

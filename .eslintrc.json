@@ -6,6 +6,7 @@
   },
   "extends": "eslint:recommended",
   "rules": {
+    "strict": "error",
     "array-callback-return": "warn",
     "brace-style": ["error", "1tbs"],
     "complexity": ["warn", 20],
