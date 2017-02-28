@@ -1,4 +1,5 @@
 'use strict';
+
 const configureRequest = require('../util/configureRequest');
 const requestBodyUtils = require('../util/sync_request_bodies');
 const recordUtils = require('../util/generate_record');
@@ -25,7 +26,7 @@ function syncDataset(baseUrl, request, clientId, name) {
     url: urlFor(baseUrl, name),
     body: payload,
     json: true
-  }).then();
+  });
 }
 
 function createRecord(baseUrl, request, clientId, dataset, data) {
@@ -37,14 +38,14 @@ function createRecord(baseUrl, request, clientId, dataset, data) {
     pending: [recordUtils.generateRecord(data)]
   });
   return request.post({
-    url: urlFor(baseUrl, 'workorders'),
+    url: urlFor(baseUrl, dataset),
     body: payload,
     json: true
   }).then(() => data);
 }
 
-module.exports = function(runner, argv) {
-  return function(previousResolution) {
+module.exports = function portalFlow(runner, argv) {
+  return previousResolution => {
     runner.actStart('Portal Flow');
     const baseUrl = argv.app;
     const clientId = previousResolution.clientIdentifier;
@@ -61,24 +62,34 @@ module.exports = function(runner, argv) {
       doSync('workflows'),
       doSync('result'),
       doSync('messages')
-    ]);
+    ]).then(() => runner.actEnd('Portal: initialSync'));
 
-    return syncPromise
-    .then(() => Promise.all([
-      createUserAndGroup(request, baseUrl, makeUser(1)),
-      create('workflows', makeWorkflow(1))
+    return syncPromise.then(() => Promise.all([
+      Promise.resolve(runner.actStart('Portal: create user and group'))
+        .then(() => createUserAndGroup(request, baseUrl, makeUser(1)))
+        .then(res => {
+          runner.actEnd('Portal: create user and group');
+          return res;
+        }),
+      Promise.resolve(runner.actStart('Portal: create workflow'))
+        .then(() => create('workflows', makeWorkflow(1)))
+        .then(res => {
+          runner.actEnd('Portal: create workflow');
+          return res;
+        }),
     ]))
 
-    .then(arr =>
-      // ([user, workflow] => // no destructuring without flags in node 4.x :(
+    .spread((user, workflow) =>
       Promise.all([
-        create('workorders', makeWorkorder(String(arr[0].id), String(arr[1].id))),
-        create('messages', makeMessage(arr[0]))
-      ])
-    )
+        Promise.resolve(runner.actStart('Portal: create workorder'))
+          .then(() => create('workorders', makeWorkorder(String(user.id), String(workflow.id))))
+          .then(() => runner.actEnd('Portal: create workorder')),
+        Promise.resolve(runner.actStart('Portal: create message'))
+          .then(() => create('messages', makeMessage(user)))
+          .then(() => runner.actEnd('Portal: create message'))
+      ]))
 
-    .then(function() {
-      runner.actEnd('Portal: initialSync');
+    .then(() => {
       runner.actEnd('Portal Flow');
       return Promise.resolve(previousResolution);
     })

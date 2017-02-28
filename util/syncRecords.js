@@ -1,5 +1,8 @@
+'use strict';
+
 const configureRequest = require('../util/configureRequest');
 const requestBodyUtils = require('../util/sync_request_bodies');
+
 module.exports = function syncRecords(lr, argv) {
   /**
    * Test step: SyncRecords request to get the data from the server
@@ -7,7 +10,7 @@ module.exports = function syncRecords(lr, argv) {
    * @returns {promise} A promise that resolves with an object
    * containing session token and dataset hash
    */
-  return function(previousResolution) {
+  return previousResolution => {
     const sessionToken = previousResolution.sessionToken;
     const serverHash = previousResolution.serverHash;
     const clientIdentifier = previousResolution.clientIdentifier;
@@ -43,5 +46,5 @@ module.exports = function syncRecords(lr, argv) {
         return resolve(resolution);
       });
     });
-  }
-}
+  };
+};

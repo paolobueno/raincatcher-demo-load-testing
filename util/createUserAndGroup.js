@@ -1,3 +1,5 @@
+'use strict';
+
 module.exports = function createUserAndGroup(request, baseUrl, user) {
   return request.post({
     url: `${baseUrl}/api/wfm/user`,
