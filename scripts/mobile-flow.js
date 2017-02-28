@@ -1,7 +1,7 @@
 'use script';
 
-module.exports = function(runner, argv) {
-  return function(previousResolution) {
+module.exports = function mobileFlow(runner, argv) {
+  return previousResolution => {
     runner.actStart('Mobile Flow');
     runner.actEnd('Mobile Flow');
     return Promise.resolve(previousResolution);

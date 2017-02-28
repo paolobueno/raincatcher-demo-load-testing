@@ -44,8 +44,8 @@ function createRecord(baseUrl, request, clientId, dataset, data) {
   }).then(() => data);
 }
 
-module.exports = function(runner, argv) {
-  return function(previousResolution) {
+module.exports = function portalFlow(runner, argv) {
+  return previousResolution => {
     runner.actStart('Portal Flow');
     const baseUrl = argv.app;
     const clientId = previousResolution.clientIdentifier;
@@ -78,7 +78,7 @@ module.exports = function(runner, argv) {
       ])
     )
 
-    .then(function() {
+    .then(() => {
       runner.actEnd('Portal Flow');
       return Promise.resolve(previousResolution);
     })

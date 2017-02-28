@@ -10,7 +10,7 @@ module.exports = function syncRecords(lr, argv) {
    * @returns {promise} A promise that resolves with an object
    * containing session token and dataset hash
    */
-  return function(previousResolution) {
+  return previousResolution => {
     const sessionToken = previousResolution.sessionToken;
     const serverHash = previousResolution.serverHash;
     const clientIdentifier = previousResolution.clientIdentifier;
