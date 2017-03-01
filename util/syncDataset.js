@@ -1,3 +1,4 @@
+'use strict';
 const urlFor = require('./urlFor');
 const requestBodyUtils = require('./sync_request_bodies');
 
@@ -14,5 +15,5 @@ module.exports = function syncDataset(baseUrl, request, clientId, name) {
     url: urlFor(baseUrl, name),
     body: payload,
     json: true
-  }).then();
+  });
 };

@@ -17,31 +17,28 @@ module.exports = function portalFlow(runner, argv) {
     const baseUrl = argv.app;
     const clientId = previousResolution.clientIdentifier;
     const request = configureRequest(clientId, previousResolution.sessionToken);
+    const datasets = ['workorders', 'workflows', 'messages', 'result'];
 
     // partially apply constant params so further calls are cleaner
     const create = createRecord.bind(this, baseUrl, request, clientId);
     const doSync = syncDataset.bind(this, baseUrl, request, clientId);
+    const act = promiseAct.bind(this, runner);
 
-    const syncPromise = promiseAct(runner, 'Portal: initialSync', () => Promise.all([
-      doSync('workorders'),
-      doSync('workflows'),
-      doSync('result'),
-      doSync('messages')
-    ]));
+    const syncPromise = act('Portal: initialSync',
+      () => Promise.all(datasets.map(doSync)));
 
     return syncPromise.then(() => Promise.all([
-      promiseAct(runner, 'Portal: create user and group',
+      act('Portal: create user and group',
         () => createUserAndGroup(request, baseUrl, makeUser(1))),
-      promiseAct(runner, 'Portal: create workflow',
+      act('Portal: create workflow',
         () => create('workflows', makeWorkflow(1)))
     ]))
 
-    .then(arr =>
-      // ([user, workflow] => // no destructuring without flags in node 4.x :(
+    .spread((user, workflow) =>
       Promise.all([
-        promiseAct(runner, 'Portal: create workorder',
+        act('Portal: create workorder',
           () => create('workorders', makeWorkorder(String(user.id), String(workflow.id)))),
-        promiseAct(runner, 'Portal: create message',
+        act('Portal: create message',
           () => create('messages', makeMessage(user)))
       ]))
 
