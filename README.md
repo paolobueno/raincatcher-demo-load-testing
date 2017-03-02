@@ -6,7 +6,9 @@ This project contains scripts that are consumed by load-runner, for
 ## Setup
 
 There's a setup script at `./setup/usersWorkorders.js` which creates a
- specified number of users, and creates a workorder for each one. Running it with node on the command line will show details of the parameters that it expects:
+ specified number of users, and creates a workorder for each
+ one. Running it with node on the command line will show details of
+ the parameters that it expects:
 
 ``` bash
 node setup/usersWorkorders.js
@@ -21,7 +23,8 @@ Options:
 Missing required arguments: app, username, password, numUsers, concurrency
 ```
 
-Here's an example of how to run the setup script to create 100 users at a concurrency of 10:
+Here's an example of how to run the setup script to create 100 users
+ at a concurrency of 10:
 
 ```bash
 ./setup/usersWorkorders.js -a https://mycloudapp.mydomain.tld -u trever -p 123 -n 100 -c 10
@@ -32,4 +35,18 @@ npm is also configured to be able to run this script as `setup`, just
 
 ``` bash
 npm run setup -- -a https://mycloudapp.mydomain.tld -u trever -p 123 -n 100 -c 10
+```
+
+## Collecting Results
+
+There's a collection script at `util/collectResults.js` which takes a
+ results directory to pluck relevant information from, and a csv file
+ (and an optional flag to write the CSV header). It can be run as
+ follows:
+
+``` bash
+node util/collectResults.js --dir runs/<result dir>/ --csv results.csv --header
+
+# or as the npm 'results script'
+npm run results -- --dir runs/<result dir>/ --csv test.csv --header
 ```
