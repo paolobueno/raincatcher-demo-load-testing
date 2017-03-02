@@ -29,9 +29,9 @@ module.exports = function portalFlow(runner, argv) {
 
     return syncPromise.then(() => Promise.all([
       act('Portal: create user and group',
-        () => createUserAndGroup(request, baseUrl, makeUser(1))),
+        () => createUserAndGroup(request, baseUrl, makeUser(`-portalflow${process.env.LR_RUN_NUMBER}`))),
       act('Portal: create workflow',
-        () => create('workflows', makeWorkflow(1)))
+        () => create('workflows', makeWorkflow(process.env.LR_RUN_NUMBER)))
     ]))
 
     .spread((user, workflow) =>

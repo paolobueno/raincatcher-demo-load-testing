@@ -82,7 +82,7 @@ if (flowNumber > flows.length) {
 } else {
 
 // Execution starts here
-  login(lr, configureRequest(clientIdentifier), argv.app, argv.username, argv.password)
+  login(lr, configureRequest(clientIdentifier), argv.app, `loaduser${process.env.LR_RUN_NUMBER}`, argv.password)
     .then(initialSync)
     .then(flows[flowNumber](lr, argv))
     .then(logout)
