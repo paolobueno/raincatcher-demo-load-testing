@@ -30,6 +30,8 @@ function getFieldsFromFileContents(contents) {
   const pattern = _.get(contents, 'pattern', []).join('-');
   const portalRuns = _.get(_.find(contents.actions, {action: 'Portal: initialSync'}), 'count');
   const deviceRuns = _.get(_.find(contents.actions, {action: 'Mobile Flow'}), 'count');
+  const errorCount = _.get(contents, 'errorRuns.status.total', 0) +
+        _.get(contents, 'successRuns.status.error', 0);
 
   return parseScriptArgs(contents.invocation)
     .then(invocationArgs => ({
@@ -38,6 +40,7 @@ function getFieldsFromFileContents(contents) {
       'Total Executions': contents.numUsers,
       'Portal Executions': portalRuns,
       'Device Executions': deviceRuns,
+      'Errors': errorCount,
       'Ramp up': contents.rampUp,
       'Pattern': pattern,
       'Total Completed': contents.successRuns.status.total,
@@ -48,7 +51,6 @@ function getFieldsFromFileContents(contents) {
       'Completed duration median': contents.successRuns.duration.median,
       'Completed duration 95th percentile': contents.successRuns.duration['95%'],
       'Completed duration 99th percentile': contents.successRuns.duration['99%'],
-      'Errors (not completed)': contents.errorRuns.status.total,
       'Start': contents.startTime,
       'End': contents.endTime,
       'Total duration': contents.duration,

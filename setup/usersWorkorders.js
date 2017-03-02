@@ -47,7 +47,7 @@ const argv = require('yargs')
       .argv;
 
 function postUsers(sessionToken, numUsers, concurrency) {
-  const users = _.times(numUsers, makeUser);
+  const users = _.range(1, numUsers + 1).map(makeUser);
   const sessionRequest = rp.defaults({
     json: true,
     headers: requestBodyUtils.getSyncRequestHeaders({'X-FH-sessionToken': sessionToken})
