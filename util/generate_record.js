@@ -8,14 +8,15 @@ const _ = require('lodash');
  * @param {Object} options - Override default values of the record
  * @returns {Object} - The generated record object
  */
-function generateRecord(postObject, options) {
+function generateRecord(postObject, options, action) {
+  action = action || 'create';
 
   postObject.name = randomstring.generate(6);
   postObject.created = new Date().getTime();
 
   let recordObject = {
     inFlight: false,
-    action: 'create',
+    action: action,
     post: postObject,
     postHash: getHashForObject(postObject),
     timestamp: new Date().getTime()

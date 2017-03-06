@@ -32,15 +32,16 @@ module.exports = function mobileFlow(runner, argv) {
         const data = syncResultsToArray(syncData);
         const workorders = data[0];
         const user = _.find(users, {username: `loaduser${process.env.LR_RUN_NUMBER}`});
+        const resultId = randomstring.generate(6);
 
         return Promise.all([
           // create one result
-          act('Device: create New Result', // TODO: creation of the object doesn't need to be measured
-              () => makeResult.createNew(randomstring.generate(6)))
-            .then(postObj => act('Device: sync New result', () => create('results', postObj, syncData[datasets.indexOf('results')].hash)))
-            .then(result => 'sync records')
-            .then(result => act('Device: sync In Progress result', () => {})) // update
-            .then(result => act('Device: sync Complete result', () => {})), // update
+          act('Device: create New Result', () => create('results',
+            makeResult.createNew()))
+            .then(() => act('Device: sync In Progress result', () => create('results',
+              makeResult.updateInProgress(resultId, user.id, workorders[0].id), undefined, 'update')))
+            .then(() => act('Device: sync Complete result', () => create('results',
+              makeResult.updateComplete(resultId, user.id, workorders[0].id), undefined, 'update'))),
           // create one message // TODO: demo client app doesn't *SEND* any messages
           act('Device: create messages', () => makeMessage(user))
             .then(message => act('Device: sync messages', () => create('messages', message, syncData[datasets.indexOf('messages')].hash)))
