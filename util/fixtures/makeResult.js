@@ -1,5 +1,19 @@
 'use strict';
-module.exports = function makeResult(id, userId, workorderId) {
+
+module.exports = {
+  createNew: createNew,
+  updateInProgress: updateInProgress,
+  updateComplete: updateComplete
+};
+
+function createNew(localuid) {
+  return {
+    "status": "New",
+    "_localuid": localuid
+  };
+}
+
+function updateInProgress(id, userId, workorderId) {
   return {
     "status": "In Progress",
     "stepResults": {
@@ -41,4 +55,8 @@ module.exports = function makeResult(id, userId, workorderId) {
     "workorderId": workorderId,
     "id": id
   };
-};
+}
+
+function updateComplete() {
+
+}

@@ -20,32 +20,30 @@ module.exports = function mobileFlow(runner, argv) {
     const request = configureRequest(clientId, previousResolution.sessionToken);
     const create = createRecord.bind(this, baseUrl, request, clientId);
     const doSync = syncDataset.bind(this, baseUrl, request, clientId);
-    const datasets = ['workorders', 'workflows', 'messages', 'result'];
+    const datasets = ['workorders', 'workflows', 'messages', 'results'];
     const act = promiseAct.bind(this, runner);
 
-    const initialSync = act('Device: initialSync',
-      () => Promise.all(datasets.map(doSync)))
-      .then(syncResultsToArray);
-
     return Promise.join(
-      initialSync,
+      act('Device: initialSync', () => Promise.all(datasets.map(doSync))),
       request.get({
         url: `${baseUrl}/api/wfm/user`
       }),
-      (data, users) => {
+      (syncData, users) => {
+        const data = syncResultsToArray(syncData);
         const workorders = data[0];
         const user = _.find(users, {username: `loaduser${process.env.LR_RUN_NUMBER}`});
 
         return Promise.all([
           // create one result
           act('Device: create New Result', // TODO: creation of the object doesn't need to be measured
-              () => makeResult(randomstring.generate(6), user.id, _.find(workorders, {assignee: user.id})))
-            .then(result => act('Device: sync New result', () => create('results', result))) // create
+              () => makeResult.createNew(randomstring.generate(6)))
+            .then(postObj => act('Device: sync New result', () => create('results', postObj, syncData[datasets.indexOf('results')].hash)))
+            .then(result => 'sync records')
             .then(result => act('Device: sync In Progress result', () => {})) // update
             .then(result => act('Device: sync Complete result', () => {})), // update
           // create one message // TODO: demo client app doesn't *SEND* any messages
           act('Device: create messages', () => makeMessage(user))
-            .then(message => act('Device: sync messages', () => create('messages', message)))
+            .then(message => act('Device: sync messages', () => create('messages', message, syncData[datasets.indexOf('messages')].hash)))
         ]);
       })
       .then(() => runner.actEnd('Mobile Flow'))

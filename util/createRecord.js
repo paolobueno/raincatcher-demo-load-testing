@@ -4,13 +4,14 @@ const urlFor = require('./urlFor');
 const recordUtils = require('./generate_record');
 const requestBodyUtils = require('./sync_request_bodies');
 
-module.exports = function createRecord(baseUrl, request, clientId, dataset, data) {
+module.exports = function createRecord(baseUrl, request, clientId, dataset, data, dataset_hash) {
 
+  const meta_data = clientId ? { clientIdentifier: clientId } : null;
   const payload = requestBodyUtils.getSyncRecordsRequestBody({
     fn: 'sync',
-    meta_data: {
-      clientIdentifier: clientId
-    },
+    dataset_id: dataset,
+    dataset_hash: dataset_hash,
+    meta_data: meta_data,
     pending: [recordUtils.generateRecord(data)]
   });
   return request.post({
