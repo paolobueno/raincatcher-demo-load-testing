@@ -42,9 +42,7 @@ module.exports = function portalFlow(runner, argv) {
           () => create('messages', makeMessage(user)))
       ]))
 
-    .then(() => {
-      runner.actEnd('Portal Flow');
-      return Promise.resolve(previousResolution);
-    });
+      .then(() => runner.actEnd('Portal Flow'))
+      .then(() => Promise.resolve(previousResolution));
   };
 };
