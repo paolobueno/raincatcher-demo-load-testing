@@ -23,8 +23,12 @@ Options:
 Missing required arguments: app, username, password, numUsers, concurrency
 ```
 
-Here's an example of how to run the setup script to create 100 users
- at a concurrency of 10:
+See the below section on how to run the test to see how this setup
+ script can be executed by `load-runner` before a test run, with the
+ same parameters as the test run itself.
+
+Here's an example of how to run the setup script standalone to create
+ 100 users at a concurrency of 10:
 
 ```bash
 ./setup/usersWorkorders.js -a https://mycloudapp.mydomain.tld -u trever -p 123 -n 100 -c 10
@@ -35,6 +39,22 @@ npm is also configured to be able to run this script as `setup`, just
 
 ``` bash
 npm run setup -- -a https://mycloudapp.mydomain.tld -u trever -p 123 -n 100 -c 10
+```
+
+## Running the test
+
+Here's an example of running the test with 4 users, at a concurrency
+ of 2, with 2 portal users and 2 device users:
+
+``` bash
+load-runner --output true \
+    --rampUp 1 \
+    --numUsers 4 \
+    --pattern 0 1 \
+    --concurrency 2 \
+    --script scripts/sync-workflow.js \
+    --before ./setup/usersWorkorders.js \
+    -- -a https://wfmdemocloudapponlyexfj.local.feedhenry.io -u trever -p 123
 ```
 
 ## Collecting Results
