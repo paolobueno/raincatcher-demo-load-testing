@@ -8,7 +8,6 @@ const createRecord = require('../util/createRecord');
 const promiseAct = require('../util/promiseAct');
 const syncResultsToArray = require('../util/syncResultsToArray');
 const makeResult = require('../util/fixtures/makeResult');
-const makeMessage = require('../util/fixtures/makeMessage');
 const randomstring = require('randomstring');
 
 module.exports = function mobileFlow(runner, argv) {
@@ -41,10 +40,7 @@ module.exports = function mobileFlow(runner, argv) {
             .then(() => act('Device: sync In Progress result', () => create('results',
               makeResult.updateInProgress(resultId, user.id, workorders[0].id), undefined, 'update')))
             .then(() => act('Device: sync Complete result', () => create('results',
-              makeResult.updateComplete(resultId, user.id, workorders[0].id), undefined, 'update'))),
-          // create one message // TODO: demo client app doesn't *SEND* any messages
-          act('Device: create messages', () => makeMessage(user))
-            .then(message => act('Device: sync messages', () => create('messages', message, syncData[datasets.indexOf('messages')].hash)))
+              makeResult.updateComplete(resultId, user.id, workorders[0].id), undefined, 'update')))
         ]);
       })
       .then(() => runner.actEnd('Mobile Flow'))
