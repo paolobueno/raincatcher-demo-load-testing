@@ -5,7 +5,7 @@ const Promise = require('bluebird');
  */
 module.exports = function promiseAct(runner, actName, fn) {
   return Promise.resolve(runner.actStart(actName))
-    .tap(() => runner.actEnd(actName))
     .then(fn)
-    .catch(err => console.error(`Got an error in: ${actName}`, err));
+    .tap(() => runner.actEnd(actName))
+    .catch(runner.checkError.bind(runner));
 };
