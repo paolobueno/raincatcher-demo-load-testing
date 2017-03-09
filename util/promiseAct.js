@@ -6,5 +6,6 @@ const Promise = require('bluebird');
 module.exports = function promiseAct(runner, actName, fn) {
   return Promise.resolve(runner.actStart(actName))
     .then(fn)
-    .tap(() => runner.actEnd(actName));
+    .tap(() => runner.actEnd(actName))
+    .catch(runner.checkError.bind(runner));
 };
