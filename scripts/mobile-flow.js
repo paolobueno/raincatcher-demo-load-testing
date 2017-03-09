@@ -38,9 +38,9 @@ module.exports = function mobileFlow(runner, argv) {
           act('Device: create New Result', () => create('results',
             makeResult.createNew()))
             .then(() => act('Device: sync In Progress result', () => create('results',
-              makeResult.updateInProgress(resultId, user.id, workorders[0].id), undefined, 'update')))
+              makeResult.updateInProgress(resultId, user.id, workorders[0].id), syncData[datasets.indexOf('results')].hash, 'update')))
             .then(() => act('Device: sync Complete result', () => create('results',
-              makeResult.updateComplete(resultId, user.id, workorders[0].id), undefined, 'update')))
+              makeResult.updateComplete(resultId, user.id, workorders[0].id), syncData[datasets.indexOf('results')].hash, 'update')))
         ]);
       })
       .then(() => runner.actEnd('Mobile Flow'))
