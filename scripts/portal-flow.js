@@ -1,6 +1,7 @@
 'use strict';
 
 const configureRequest = require('../util/configureRequest');
+const sync = require('../util/sync.js');
 const syncDataset = require('../util/syncDataset');
 const createRecord = require('../util/createRecord');
 const makeUser = require('../util/fixtures/makeUser');
@@ -11,21 +12,23 @@ const createUserAndGroup = require('../util/createUserAndGroup');
 const promiseAct = require('../util/promiseAct');
 const Promise = require('bluebird');
 
-module.exports = function portalFlow(runner, argv) {
-  return function portalFlowAct(previousResolution) {
+module.exports = function portalFlow(runner, argv, clientId) {
+  return function portalFlowAct(sessionToken) {
     runner.actStart('Portal Flow');
+
     const baseUrl = argv.app;
-    const clientId = previousResolution.clientIdentifier;
-    const request = configureRequest(clientId, previousResolution.sessionToken);
+    const request = configureRequest(clientId, sessionToken);
     const datasets = ['workorders', 'workflows', 'messages', 'results'];
 
     // partially apply constant params so further calls are cleaner
     const create = createRecord.bind(this, baseUrl, request, clientId);
-    const doSync = syncDataset.bind(this, baseUrl, request, clientId);
+    const doSync = sync.bind(this, baseUrl, request, clientId);
+    const doSyncRecords = syncDataset.bind(this, baseUrl, request, clientId);
     const act = promiseAct.bind(this, runner);
 
-    const syncPromise = act('Portal: initialSync',
-                            () => Promise.all(datasets.map(doSync)));
+    const syncPromise = act('initialSync', () => Promise.all(datasets.map(doSync)))
+          .then(console.dir)
+          .then(() => act('Portal: syncRecords', () => Promise.all(datasets.map(doSyncRecords))));
 
     return syncPromise.then(syncResults => Promise.all([
       new Promise(resolve => resolve(syncResults)),
@@ -35,7 +38,7 @@ module.exports = function portalFlow(runner, argv) {
           () => create('workflows', makeWorkflow(process.env.LR_RUN_NUMBER), syncResults[datasets.indexOf('workflows')].hash))
     ]))
 
-    .spread((syncResults, user, workflow) =>
+      .spread((syncResults, user, workflow) =>
       Promise.all([
         act('Portal: create workorder',
             () => create('workorders', makeWorkorder(String(user.id), String(workflow.id)), syncResults[datasets.indexOf('workorders')].hash)),
@@ -44,6 +47,6 @@ module.exports = function portalFlow(runner, argv) {
       ]))
 
       .then(() => runner.actEnd('Portal Flow'))
-      .then(() => Promise.resolve(previousResolution));
+      .then(() => sessionToken);
   };
 };

@@ -3,6 +3,7 @@
 const _ = require('lodash');
 const Promise = require('bluebird');
 const configureRequest = require('../util/configureRequest');
+const sync = require('../util/sync');
 const syncDataset = require('../util/syncDataset');
 const createRecord = require('../util/createRecord');
 const promiseAct = require('../util/promiseAct');
@@ -10,20 +11,23 @@ const syncResultsToArray = require('../util/syncResultsToArray');
 const makeResult = require('../util/fixtures/makeResult');
 const randomstring = require('randomstring');
 
-module.exports = function mobileFlow(runner, argv) {
-  return function mobileFlowAct(previousResolution) {
+module.exports = function mobileFlow(runner, argv, clientId) {
+  return function mobileFlowAct(sessionToken) {
     runner.actStart('Mobile Flow');
 
     const baseUrl = argv.app;
-    const clientId = previousResolution.clientIdentifier;
-    const request = configureRequest(clientId, previousResolution.sessionToken);
-    const create = createRecord.bind(this, baseUrl, request, clientId);
-    const doSync = syncDataset.bind(this, baseUrl, request, clientId);
+    const request = configureRequest(clientId, sessionToken);
     const datasets = ['workorders', 'workflows', 'messages', 'results'];
+
+    // partially apply constant params so further calls are cleaner
+    const create = createRecord.bind(this, baseUrl, request, clientId);
+    const doSync = sync.bind(this, baseUrl, request, clientId);
+    const doSyncRecords = syncDataset.bind(this, baseUrl, request, clientId);
     const act = promiseAct.bind(this, runner);
 
     return Promise.join(
-      act('Device: initialSync', () => Promise.all(datasets.map(doSync))),
+      act('initialSync', () => Promise.all(datasets.map(doSync)))
+        .then(() => act('Device: sync Records', () => Promise.all(datasets.map(doSyncRecords)))),
       request.get({
         url: `${baseUrl}/api/wfm/user`
       }),
@@ -44,6 +48,6 @@ module.exports = function mobileFlow(runner, argv) {
         ]);
       })
       .then(() => runner.actEnd('Mobile Flow'))
-      .then(() => previousResolution);
+      .then(() => sessionToken);
   };
 };

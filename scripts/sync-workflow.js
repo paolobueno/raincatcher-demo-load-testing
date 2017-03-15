@@ -5,7 +5,6 @@ const crypto = require('crypto');
 const lr = require('load-runner')();
 const Promise = require('bluebird');
 const configureRequest = require('../util/configureRequest');
-const requestBodyUtils = require('../util/sync_request_bodies');
 const clientIdentifier = `${crypto.randomBytes(16).toString('hex')}_${Date.now()}`;
 const login = require('../util/login');
 
@@ -16,8 +15,8 @@ const argv = require('../util/yargopts').argv;
  * @param {} previousResolution - Contains sessionToken
  * @returns {promise} A promise that doesn't return anything
  */
-function logout(previousResolution) {
-  const fhRequest = configureRequest(clientIdentifier, previousResolution.sessionToken);
+function logout(sessionToken) {
+  const fhRequest = configureRequest(clientIdentifier, sessionToken);
 
   return new Promise(resolve => {
     lr.actStart('Logout');
@@ -32,47 +31,6 @@ function logout(previousResolution) {
   });
 }
 
-/**
- * Test step: Initial sync request to get dataset hash
- * @param {string} sessionToken - the token from the login step
- * @returns {promise} A promise that resolves with an object
- * containing session token and dataset hash
- */
-function initialSync(sessionToken) {
-  const fhRequest = configureRequest(clientIdentifier, sessionToken);
-  const reqBody = requestBodyUtils.getSyncRequestBody({
-    dataset_id: 'workorders',
-    query_params: {
-      "filter": {
-        "key": "assignee",
-        "value": "rkX1fdSH"
-      }
-    },
-    meta_data: {
-      clientIdentifier: clientIdentifier
-    },
-    pending: []
-  });
-
-  return new Promise(resolve => {
-    lr.actStart('Initial Sync');
-    return fhRequest.post({
-      url: `${argv.app}/mbaas/sync/workorders`,
-      body: reqBody,
-      json: true
-    }).then(resBody => {
-      // lr.log(`Sync response: ${util.inspect(resBody.records)}`);
-      lr.actEnd('Initial Sync');
-
-      const resolution = {
-        sessionToken: sessionToken,
-        serverHash: resBody.hash
-      };
-      return resolve(resolution);
-    });
-  });
-}
-
 const flows = [require('./mobile-flow'), require('./portal-flow')];
 // gets current flow number
 const flowNumber = process.env.LR_FLOW_NUMBER;
@@ -83,9 +41,11 @@ if (flowNumber > flows.length) {
 
 // Execution starts here
   login(lr, configureRequest(clientIdentifier), argv.app, `loaduser${process.env.LR_RUN_NUMBER}`, argv.password)
-    .then(initialSync)
-    .then(flows[flowNumber](lr, argv))
+    .then(flows[flowNumber](lr, argv, clientIdentifier))
     .then(logout)
     .then(() => lr.finish('ok'))
-    .catch(() => lr.finish('failed'));
+    .catch(err => {
+      console.error(err.stack);
+      return lr.finish('failed');
+    });
 }
