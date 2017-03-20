@@ -1,15 +1,17 @@
 'use strict';
-const urlFor = require('./urlFor');
-const requestBodyUtils = require('./sync_request_bodies');
 
-module.exports = function syncDataset(baseUrl, request, clientId, name) {
-  const payload = requestBodyUtils.getSyncRecordsRequestBody({
+const urlFor = require('./urlFor');
+
+module.exports = function syncDataset(baseUrl, request, clientId, name, clientRecs) {
+  const payload = {
+    fn: 'syncRecords',
     dataset_id: name,
+    query_params: {},
     meta_data: {
       clientIdentifier: clientId
     },
-    pending: []
-  });
+    clientRecs: clientRecs
+  };
 
   return request.post({
     url: urlFor(baseUrl, name),
