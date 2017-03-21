@@ -31,10 +31,10 @@ module.exports = function mobileFlow(runner, argv, clientId) {
       request.get({
         url: `${baseUrl}/api/wfm/user`
       }),
-      (syncData, users) => {
-        const data = syncResultsToArray(syncData);
-        const workorders = data[0];
+      (syncRecordsResults, users) => {
         const user = _.find(users, {username: `loaduser${process.env.LR_RUN_NUMBER}`});
+        const data = syncResultsToArray(syncRecordsResults);
+        const myWorkorder = data[0].filter(wo => wo.assignee === user.id)[0];
         const resultId = randomstring.generate(6);
 
         return Promise.all([
@@ -42,9 +42,9 @@ module.exports = function mobileFlow(runner, argv, clientId) {
           act('Device: create New Result', () => create('results',
             makeResult.createNew()))
             .then(() => act('Device: sync In Progress result', () => create('results',
-              makeResult.updateInProgress(resultId, user.id, workorders[0].id), syncData[datasets.indexOf('results')].hash, 'update')))
+              makeResult.updateInProgress(resultId, user.id, myWorkorder.id), syncRecordsResults[datasets.indexOf('results')].hash, 'update')))
             .then(() => act('Device: sync Complete result', () => create('results',
-              makeResult.updateComplete(resultId, user.id, workorders[0].id), syncData[datasets.indexOf('results')].hash, 'update')))
+              makeResult.updateComplete(resultId, user.id, myWorkorder.id), syncRecordsResults[datasets.indexOf('results')].hash, 'update')))
         ]);
       })
       .then(() => runner.actEnd('Mobile Flow'))
