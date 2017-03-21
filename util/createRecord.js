@@ -4,7 +4,7 @@ const urlFor = require('./urlFor');
 const recordUtils = require('./generate_record');
 const requestBodyUtils = require('./sync_request_bodies');
 
-module.exports = function createRecord(baseUrl, request, clientId, dataset, data, dataset_hash, action) {
+module.exports = function createRecord(baseUrl, request, clientId, dataset, data, dataset_hash) {
 
   const meta_data = clientId ? { clientIdentifier: clientId } : null;
   const payload = requestBodyUtils.getSyncRecordsRequestBody({
