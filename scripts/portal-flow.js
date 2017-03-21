@@ -11,7 +11,6 @@ const makeMessage = require('../util/fixtures/makeMessage');
 const makeSyncBody = require('../util/fixtures/makeSyncBody');
 const createUserAndGroup = require('../util/createUserAndGroup');
 const promiseAct = require('../util/promiseAct');
-const urlFor = require('../util/urlFor');
 const Promise = require('bluebird');
 
 module.exports = function portalFlow(runner, argv, clientId) {
@@ -29,7 +28,7 @@ module.exports = function portalFlow(runner, argv, clientId) {
     const act = promiseAct.bind(this, runner);
 
     const syncPromise = act('initialSync', () => Promise.all(datasets.map(ds => doSync(
-      urlFor(baseUrl, ds), makeSyncBody(ds, clientId)))))
+      `${baseUrl}/mbaas/sync/${ds}`, makeSyncBody(ds, clientId)))))
           .then(syncResults => Promise.all([
             Promise.resolve(syncResults),
             act('Portal: syncRecords', () => Promise.all(datasets.map(doSyncRecords)))

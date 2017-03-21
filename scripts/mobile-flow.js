@@ -7,7 +7,6 @@ const sync = require('../util/sync');
 const syncDataset = require('../util/syncDataset');
 const createRecord = require('../util/createRecord');
 const promiseAct = require('../util/promiseAct');
-const urlFor = require('../util/urlFor');
 const makeSyncBody = require('../util/fixtures/makeSyncBody');
 const syncResultsToArray = require('../util/syncResultsToArray');
 const makeResult = require('../util/fixtures/makeResult');
@@ -29,7 +28,7 @@ module.exports = function mobileFlow(runner, argv, clientId) {
 
     return Promise.join(
       act('initialSync', () => Promise.all(datasets.map(ds => doSync(
-        urlFor(baseUrl, ds), makeSyncBody(ds, clientId)))))
+        `${baseUrl}/mbaas/sync/${ds}`, makeSyncBody(ds, clientId)))))
         .then(() => act('Device: sync Records', () => Promise.all(datasets.map(doSyncRecords)))),
       request.get({
         url: `${baseUrl}/api/wfm/user`

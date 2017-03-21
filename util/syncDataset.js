@@ -1,11 +1,9 @@
 'use strict';
 
-const urlFor = require('./urlFor');
-
-module.exports = function syncDataset(baseUrl, request, clientId, name, clientRecs) {
+module.exports = function syncDataset(baseUrl, request, clientId, dataset, clientRecs) {
   const payload = {
     fn: 'syncRecords',
-    dataset_id: name,
+    dataset_id: dataset,
     query_params: {},
     meta_data: {
       clientIdentifier: clientId
@@ -14,7 +12,7 @@ module.exports = function syncDataset(baseUrl, request, clientId, name, clientRe
   };
 
   return request.post({
-    url: urlFor(baseUrl, name),
+    url: `${baseUrl}/mbaas/sync/${dataset}`,
     body: payload,
     json: true
   });
