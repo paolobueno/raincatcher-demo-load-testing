@@ -62,12 +62,17 @@ module.exports = function mobileFlow(runner, argv, clientId) {
 
         return Promise.all([
           // create one result
-          act('Device: create New Result', () => create('results',
-            makeResult.createNew()))
-            .then(() => act('Device: sync In Progress result', () => create('results',
-              makeResult.updateInProgress(resultId, user.id, myWorkorder.id), syncResults[datasets.indexOf('results')].hash)))
-            .then(() => act('Device: sync Complete result', () => create('results',
-              makeResult.updateComplete(resultId, user.id, myWorkorder.id), syncResults[datasets.indexOf('results')].hash)))
+          act('Device: create New Result',
+              () => create('results', makeResult.createNew(),
+                           syncResults[datasets.indexOf('results')].hash))
+            .then(() => act('Device: sync In Progress result', () => create(
+              'results',
+              makeResult.updateInProgress(resultId, user.id, myWorkorder.id),
+              syncResults[datasets.indexOf('results')].hash)))
+            .then(() => act('Device: sync Complete result', () => create(
+              'results',
+              makeResult.updateComplete(resultId, user.id, myWorkorder.id),
+              syncResults[datasets.indexOf('results')].hash)))
         ]);
       })
       .then(() => runner.actEnd('Mobile Flow'))
