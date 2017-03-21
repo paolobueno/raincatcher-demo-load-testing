@@ -2,21 +2,13 @@
 
 const urlFor = require('./urlFor');
 const recordUtils = require('./generate_record');
-const requestBodyUtils = require('./sync_request_bodies');
+const makeSyncBody = require('./fixtures/makeSyncBody');
+const sync = require('./sync');
 
-module.exports = function createRecord(baseUrl, request, clientId, dataset, data, dataset_hash) {
+module.exports = function createRecord(baseUrl, request, clientId, dataset, data, dataset_hash, query_params, acknowledgements) {
 
-  const meta_data = clientId ? { clientIdentifier: clientId } : null;
-  const payload = requestBodyUtils.getSyncRecordsRequestBody({
-    fn: 'sync',
-    dataset_id: dataset,
-    dataset_hash: dataset_hash,
-    meta_data: meta_data,
-    pending: [recordUtils.generateRecord(data)]
-  });
-  return request.post({
-    url: urlFor(baseUrl, dataset),
-    body: payload,
-    json: true
-  }).then(() => data);
+  const pending = [recordUtils.generateRecord(data)];
+  const payload = makeSyncBody(dataset, clientId, dataset_hash, query_params, pending, acknowledgements);
+
+  return sync(request, urlFor(baseUrl, dataset), payload).then(() => data);
 };
