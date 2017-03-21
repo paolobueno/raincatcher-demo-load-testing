@@ -11,6 +11,7 @@ const makeMessage = require('../util/fixtures/makeMessage');
 const createUserAndGroup = require('../util/createUserAndGroup');
 const promiseAct = require('../util/promiseAct');
 const Promise = require('bluebird');
+const _ = require('lodash');
 
 module.exports = function portalFlow(runner, argv, clientId) {
   return function portalFlowAct(sessionToken) {
@@ -27,19 +28,20 @@ module.exports = function portalFlow(runner, argv, clientId) {
     const act = promiseAct.bind(this, runner);
 
     const syncPromise = act('initialSync', () => Promise.all(datasets.map(doSync)))
-          .then(console.dir)
-          .then(() => act('Portal: syncRecords', () => Promise.all(datasets.map(doSyncRecords))));
+          .then(syncResults => Promise.all([
+            Promise.resolve(syncResults),
+            act('Portal: syncRecords', () => Promise.all(datasets.map(doSyncRecords)))
+          ]));
 
-    return syncPromise.then(syncResults => Promise.all([
-      new Promise(resolve => resolve(syncResults)),
+    return syncPromise.spread((syncResults, syncRecordsResults) => Promise.all([
+      Promise.resolve(syncResults),
       act('Portal: create user and group',
           () => createUserAndGroup(request, baseUrl, makeUser(`-portalflow${process.env.LR_RUN_NUMBER}`))),
       act('Portal: create workflow',
           () => create('workflows', makeWorkflow(process.env.LR_RUN_NUMBER), syncResults[datasets.indexOf('workflows')].hash))
     ]))
 
-      .spread((syncResults, user, workflow) =>
-      Promise.all([
+      .spread((syncResults, user, workflow) => Promise.all([
         act('Portal: create workorder',
             () => create('workorders', makeWorkorder(String(user.id), String(workflow.id)), syncResults[datasets.indexOf('workorders')].hash)),
         act('Portal: create message',
