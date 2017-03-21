@@ -7,6 +7,8 @@ const sync = require('../util/sync');
 const syncDataset = require('../util/syncDataset');
 const createRecord = require('../util/createRecord');
 const promiseAct = require('../util/promiseAct');
+const urlFor = require('../util/urlFor');
+const makeSyncBody = require('../util/fixtures/makeSyncBody');
 const syncResultsToArray = require('../util/syncResultsToArray');
 const makeResult = require('../util/fixtures/makeResult');
 const randomstring = require('randomstring');
@@ -21,12 +23,13 @@ module.exports = function mobileFlow(runner, argv, clientId) {
 
     // partially apply constant params so further calls are cleaner
     const create = createRecord.bind(this, baseUrl, request, clientId);
-    const doSync = sync.bind(this, baseUrl, request, clientId);
+    const doSync = sync.bind(this, request);
     const doSyncRecords = syncDataset.bind(this, baseUrl, request, clientId);
     const act = promiseAct.bind(this, runner);
 
     return Promise.join(
-      act('initialSync', () => Promise.all(datasets.map(doSync)))
+      act('initialSync', () => Promise.all(datasets.map(ds => doSync(
+        urlFor(baseUrl, ds), makeSyncBody(ds, clientId)))))
         .then(() => act('Device: sync Records', () => Promise.all(datasets.map(doSyncRecords)))),
       request.get({
         url: `${baseUrl}/api/wfm/user`

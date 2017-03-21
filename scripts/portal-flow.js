@@ -8,10 +8,11 @@ const makeUser = require('../util/fixtures/makeUser');
 const makeWorkorder = require('../util/fixtures/makeWorkorder');
 const makeWorkflow = require('../util/fixtures/makeWorkflow');
 const makeMessage = require('../util/fixtures/makeMessage');
+const makeSyncBody = require('../util/fixtures/makeSyncBody');
 const createUserAndGroup = require('../util/createUserAndGroup');
 const promiseAct = require('../util/promiseAct');
+const urlFor = require('../util/urlFor');
 const Promise = require('bluebird');
-const _ = require('lodash');
 
 module.exports = function portalFlow(runner, argv, clientId) {
   return function portalFlowAct(sessionToken) {
@@ -23,11 +24,12 @@ module.exports = function portalFlow(runner, argv, clientId) {
 
     // partially apply constant params so further calls are cleaner
     const create = createRecord.bind(this, baseUrl, request, clientId);
-    const doSync = sync.bind(this, baseUrl, request, clientId);
+    const doSync = sync.bind(this, request);
     const doSyncRecords = syncDataset.bind(this, baseUrl, request, clientId);
     const act = promiseAct.bind(this, runner);
 
-    const syncPromise = act('initialSync', () => Promise.all(datasets.map(doSync)))
+    const syncPromise = act('initialSync', () => Promise.all(datasets.map(ds => doSync(
+      urlFor(baseUrl, ds), makeSyncBody(ds, clientId)))))
           .then(syncResults => Promise.all([
             Promise.resolve(syncResults),
             act('Portal: syncRecords', () => Promise.all(datasets.map(doSyncRecords)))
