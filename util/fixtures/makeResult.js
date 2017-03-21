@@ -6,7 +6,7 @@ module.exports = {
   updateComplete: updateComplete
 };
 
-function createNew(localuid) {
+function createNew() {
   return {
     "status": "New"
   };
