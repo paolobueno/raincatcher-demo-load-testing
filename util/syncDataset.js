@@ -1,6 +1,11 @@
 'use strict';
 
-module.exports = function syncDataset(baseUrl, request, clientId, dataset, clientRecs) {
+const _ = require('lodash');
+
+module.exports = function syncDataset(baseUrl, request, clientId, dataset, previousSyncRecordsResult) {
+
+  const creations = _.get(previousSyncRecordsResult, 'create', {});
+  const clientRecs = _.transform(creations, (out, v, k) => out[k] = v.hash);
   const payload = {
     fn: 'syncRecords',
     dataset_id: dataset,
