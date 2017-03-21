@@ -9,5 +9,5 @@ module.exports = function createRecord(baseUrl, request, clientId, dataset, data
   const pending = [recordUtils.generateRecord(data)];
   const payload = makeSyncBody(dataset, clientId, dataset_hash, query_params, pending, acknowledgements);
 
-  return sync(request, `${baseUrl}/mbaas/sync/${dataset}`, payload).then(() => data);
+  return sync(request, `${baseUrl}/mbaas/sync/${dataset}`, payload);
 };

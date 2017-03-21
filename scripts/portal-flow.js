@@ -20,6 +20,7 @@ module.exports = function portalFlow(runner, argv, clientId) {
     const baseUrl = argv.app;
     const request = configureRequest(clientId, sessionToken);
     const datasets = ['workorders', 'workflows', 'messages', 'results'];
+    const workflow = makeWorkflow(process.env.LR_RUN_NUMBER);
 
     // partially apply constant params so further calls are cleaner
     const create = createRecord.bind(this, baseUrl, request, clientId);
@@ -53,10 +54,10 @@ module.exports = function portalFlow(runner, argv, clientId) {
       act('Portal: create user and group',
           () => createUserAndGroup(request, baseUrl, makeUser(`-portalflow${process.env.LR_RUN_NUMBER}`))),
       act('Portal: create workflow',
-          () => create('workflows', makeWorkflow(process.env.LR_RUN_NUMBER), syncResults[datasets.indexOf('workflows')].hash))
+          () => create('workflows', workflow, syncResults[datasets.indexOf('workflows')].hash))
     ]))
 
-      .spread((syncResults, syncRecordsResults, user, workflow) => Promise.all([
+      .spread((syncResults, syncRecordsResults, user, workflowCreationResult) => Promise.all([
         act('Portal: create workorder',
             () => create('workorders', makeWorkorder(String(user.id), String(workflow.id)), syncResults[datasets.indexOf('workorders')].hash)),
         act('Portal: create message',
