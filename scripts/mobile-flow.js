@@ -30,49 +30,51 @@ module.exports = function mobileFlow(runner, argv, clientId) {
       // First do a sync of each dataset
       () => Promise.all(datasets.map(ds => doSync(`${baseUrl}/mbaas/sync/${ds}`, makeSyncBody(ds, clientId))))
       // Then do a syncRecords for each datasets (no clientRecs yet)
-        .then(syncResults => Promise.all([
-          Promise.resolve(syncResults),
-          Promise.all(datasets.map(doSyncRecords))
-        ]))
+        .then(() => Promise.all(datasets.map(doSyncRecords)))
       // Then do another sync of each dataset
-        .spread((syncResults, syncRecordsResults) => Promise.all([
+        .then(syncRecordsResults => Promise.all([
           Promise.all(datasets.map(ds => doSync(`${baseUrl}/mbaas/sync/${ds}`, makeSyncBody(ds, clientId)))),
-          Promise.resolve(syncRecordsResults),
-          Promise.resolve(_.map(syncRecordsResults[0].create, x => x.data)) //workorders
+          Promise.resolve(syncRecordsResults)
         ]))
       // Then do another syncRecords, this time with clientRecs
-        .spread((syncResults, syncRecordsResults, workorders) => Promise.all([
-          Promise.resolve(syncResults),
-          Promise.all(datasets.map(
-            ds => doSyncRecords(ds, syncRecordsResults[datasets.indexOf(ds)]))),
-          Promise.resolve(workorders)
+        .spread((syncResults, syncRecordsResults) => Promise.all([
+          Promise.resolve(_.zipObject(datasets, syncResults.map(x => x.hash))),
+          Promise.all(datasets.map(ds => doSyncRecords(ds, syncRecordsResults[datasets.indexOf(ds)]))),
+          Promise.resolve(syncRecordsResults)
         ])));
 
-    return syncPromise.spread((syncResults, syncRecordsResults, workorders) => Promise.all([
-      Promise.resolve(syncResults),
+    return syncPromise.spread((hashes, syncRecordsResults, previousSyncRecordsResults) => Promise.all([
+      Promise.resolve(hashes),
       Promise.resolve(syncRecordsResults),
-      Promise.resolve(workorders),
+      Promise.resolve(previousSyncRecordsResults),
       request.get({
         url: `${baseUrl}/api/wfm/user`
       })]))
-      .spread((syncResults, syncRecordsResults, workorders, users) => {
+
+      .spread((hashes, syncRecordsResults, previousSyncRecordsResults, users) => {
+
         const user = _.find(users, {username: `loaduser${process.env.LR_RUN_NUMBER}`});
-        const myWorkorder = workorders.filter(wo => wo.assignee === user.id)[0];
+        const myWorkorders = _.filter(
+          previousSyncRecordsResults[datasets.indexOf('workorders')].create,
+          wo => wo.data.assignee === user.id);
+        const myWorkorderId = myWorkorders[0].data.id;
         const resultId = randomstring.generate(6);
 
         return Promise.all([
           // create one result
           act('Device: create New Result',
-              () => create('results', makeResult.createNew(),
-                           syncResults[datasets.indexOf('results')].hash))
+              () => create('results', makeResult.createNew(), hashes.results))
+            .delay(1000) //TODO: set the interval
+            .then(res => doSync(`${baseUrl}/mbaas/sync/results`, makeSyncBody('results', clientId, res.hash)))
+            .then(() => doSyncRecords('results', previousSyncRecordsResults[datasets.indexOf('results')]))
             .then(() => act('Device: sync In Progress result', () => create(
               'results',
-              makeResult.updateInProgress(resultId, user.id, myWorkorder.id),
-              syncResults[datasets.indexOf('results')].hash)))
+              makeResult.updateInProgress(resultId, user.id, myWorkorderId),
+              hashes.results)))
             .then(() => act('Device: sync Complete result', () => create(
               'results',
-              makeResult.updateComplete(resultId, user.id, myWorkorder.id),
-              syncResults[datasets.indexOf('results')].hash)))
+              makeResult.updateComplete(resultId, user.id, myWorkorderId),
+              hashes.results)))
         ]);
       })
       .then(() => runner.actEnd('Mobile Flow'))
