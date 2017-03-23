@@ -32,30 +32,31 @@ module.exports = function mobileFlow(runner, argv, clientId) {
       // Then do a syncRecords for each datasets (no clientRecs yet)
         .then(() => Promise.all(datasets.map(doSyncRecords)))
       // Then do another sync of each dataset
-        .then(syncRecordsResults => Promise.all([
+        .then(initialSyncRecordsResponses => Promise.all([
           Promise.all(datasets.map(ds => doSync(`${baseUrl}/mbaas/sync/${ds}`, makeSyncBody(ds, clientId)))),
-          Promise.resolve(syncRecordsResults)
+          Promise.resolve(initialSyncRecordsResponses)
         ]))
       // Then do another syncRecords, this time with clientRecs
-        .spread((syncResults, syncRecordsResults) => Promise.all([
+        .spread((syncResults, initialSyncRecordsResponses) => Promise.all([
+          // TODO: in the browser, I see a hash in the response from syncRecords, but not here in the script
           Promise.resolve(_.zipObject(datasets, syncResults.map(x => x.hash))),
-          Promise.all(datasets.map(ds => doSyncRecords(ds, syncRecordsResults[datasets.indexOf(ds)]))),
-          Promise.resolve(syncRecordsResults)
+          Promise.all(datasets.map(ds => doSyncRecords(ds, initialSyncRecordsResponses[datasets.indexOf(ds)]))),
+          Promise.resolve(initialSyncRecordsResponses)
         ])));
 
-    return syncPromise.spread((hashes, syncRecordsResults, previousSyncRecordsResults) => Promise.all([
+    return syncPromise.spread((hashes, syncRecordsResults, initialSyncRecordsResponses) => Promise.all([
       Promise.resolve(hashes),
       Promise.resolve(syncRecordsResults),
-      Promise.resolve(previousSyncRecordsResults),
+      Promise.resolve(initialSyncRecordsResponses),
       request.get({
         url: `${baseUrl}/api/wfm/user`
       })]))
 
-      .spread((hashes, syncRecordsResults, previousSyncRecordsResults, users) => {
+      .spread((hashes, syncRecordsResults, initialSyncRecordsResponses, users) => {
 
         const user = _.find(users, {username: `loaduser${process.env.LR_RUN_NUMBER}`});
         const myWorkorders = _.filter(
-          previousSyncRecordsResults[datasets.indexOf('workorders')].create,
+          initialSyncRecordsResponses[datasets.indexOf('workorders')].create,
           wo => wo.data.assignee === user.id);
         const myWorkorderId = myWorkorders[0].data.id;
         const resultId = randomstring.generate(6);
@@ -64,9 +65,25 @@ module.exports = function mobileFlow(runner, argv, clientId) {
           // create one result
           act('Device: create New Result',
               () => create('results', makeResult.createNew(), hashes.results))
-            .delay(1000) //TODO: set the interval
-            .then(res => doSync(`${baseUrl}/mbaas/sync/results`, makeSyncBody('results', clientId, res.hash)))
-            .then(() => doSyncRecords('results', previousSyncRecordsResults[datasets.indexOf('results')]))
+            .then(() => doSyncRecords('results', initialSyncRecordsResponses[datasets.indexOf('results')]))
+            .then(previousResultSyncRecordsResponse => Promise.all([
+              // TODO: sync with acknowledgements (still old dataset hash)
+              Promise.resolve({}),
+              Promise.resolve(previousResultSyncRecordsResponse)
+            ]))
+            .spread((syncResponse, syncRecordsResponse) => Promise.all([
+              Promise.resolve(syncResponse),
+              // TODO: see TODO comment in syncDataset file and update here as appropriate
+              doSyncRecords('results', syncRecordsResponse)
+            ]))
+          // TODO: sync with acknowledgements again, this time with updated dataset hash
+            .spread((syncResponse, syncRecordsResponse) => Promise.all([
+              // TODO: sync with acknowledgements (with new dataset hash)
+              Promise.resolve(syncResponse),
+              Promise.resolve(syncRecordsResponse)
+            ]))
+
+          // TODO: The below two steps will each need the steps that follow the above step also
             .then(() => act('Device: sync In Progress result', () => create(
               'results',
               makeResult.updateInProgress(resultId, user.id, myWorkorderId),
