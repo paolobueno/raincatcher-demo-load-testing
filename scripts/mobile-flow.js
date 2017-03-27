@@ -60,7 +60,7 @@ module.exports = function mobileFlow(runner, argv, clientId) {
 
       .spread(
         (hashes, clientRecs, user, myWorkorderId, resultId) =>
-          act('Device: create New Result', () => create('results', makeResult.createNew(), hashes.results))
+          act('Device: create New Result', () => create('results', makeResult.createNew(), hashes.results, {}, [], 'create'))
           .then(() => doSyncRecords('results', clientRecs[datasets.indexOf('results')]))
           .then(clientRecs => Promise.all([
             // TODO: sync with acknowledgements (still old dataset hash)
@@ -83,11 +83,11 @@ module.exports = function mobileFlow(runner, argv, clientId) {
           .then(() => act('Device: sync In Progress result', () => create(
             'results',
             makeResult.updateInProgress(resultId, user.id, myWorkorderId),
-            hashes.results)))
+            hashes.results, {}, [], 'update')))
           .then(() => act('Device: sync Complete result', () => create(
             'results',
             makeResult.updateComplete(resultId, user.id, myWorkorderId),
-            hashes.results)))
+            hashes.results, {}, [], 'update')))
           .then(() => runner.actEnd('Mobile Flow'))
           .then(() => sessionToken));
   };
