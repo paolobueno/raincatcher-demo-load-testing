@@ -30,71 +30,65 @@ module.exports = function mobileFlow(runner, argv, clientId) {
       // First do a sync of each dataset
       () => Promise.all(datasets.map(ds => doSync(`${baseUrl}/mbaas/sync/${ds}`, makeSyncBody(ds, clientId))))
       // Then do a syncRecords for each datasets (no clientRecs yet)
-        .then(() => Promise.all(datasets.map(doSyncRecords)))
+        .then(() => Promise.all(datasets.map(ds => doSyncRecords(ds, {}))))
       // Then do another sync of each dataset
-        .then(initialSyncRecordsResponses => Promise.all([
+        .then(clientRecs => Promise.all([
           Promise.all(datasets.map(ds => doSync(`${baseUrl}/mbaas/sync/${ds}`, makeSyncBody(ds, clientId)))),
-          Promise.resolve(initialSyncRecordsResponses)
+          Promise.resolve(clientRecs)
         ]))
       // Then do another syncRecords, this time with clientRecs
-        .spread((syncResults, initialSyncRecordsResponses) => Promise.all([
+        .spread((syncResults, clientRecs) => Promise.all([
           // TODO: in the browser, I see a hash in the response from syncRecords, but not here in the script
           Promise.resolve(_.zipObject(datasets, syncResults.map(x => x.hash))),
-          Promise.all(datasets.map(ds => doSyncRecords(ds, initialSyncRecordsResponses[datasets.indexOf(ds)]))),
-          Promise.resolve(initialSyncRecordsResponses)
+          Promise.all(datasets.map(ds => doSyncRecords(ds, clientRecs[datasets.indexOf(ds)]))),
+
+          request.get({
+            url: `${baseUrl}/api/wfm/user`
+          })
+            .then(users => _.find(users, {username: `loaduser${process.env.LR_RUN_NUMBER}`}))
         ])));
 
-    return syncPromise.spread((hashes, syncRecordsResults, initialSyncRecordsResponses) => Promise.all([
+    return syncPromise.spread((hashes, clientRecs, user) => Promise.all([
       Promise.resolve(hashes),
-      Promise.resolve(syncRecordsResults),
-      Promise.resolve(initialSyncRecordsResponses),
-      request.get({
-        url: `${baseUrl}/api/wfm/user`
-      })]))
+      Promise.resolve(clientRecs),
+      Promise.resolve(user),
 
-      .spread((hashes, syncRecordsResults, initialSyncRecordsResponses, users) => {
+      doSyncRecords('workorders', {}, {filter: {key: 'assignee', value: user.id}})
+        .then(workorders => _.keys(workorders)[0]),
+      Promise.resolve(randomstring.generate(6))
+    ]))
 
-        const user = _.find(users, {username: `loaduser${process.env.LR_RUN_NUMBER}`});
-        const myWorkorders = _.filter(
-          initialSyncRecordsResponses[datasets.indexOf('workorders')].create,
-          wo => wo.data.assignee === user.id);
-        const myWorkorderId = myWorkorders[0].data.id;
-        const resultId = randomstring.generate(6);
+      .spread(
+        (hashes, clientRecs, user, myWorkorderId, resultId) =>
+          act('Device: create New Result', () => create('results', makeResult.createNew(), hashes.results))
+          .then(() => doSyncRecords('results', clientRecs[datasets.indexOf('results')]))
+          .then(clientRecs => Promise.all([
+            // TODO: sync with acknowledgements (still old dataset hash)
+            Promise.resolve({}),
+            Promise.resolve(clientRecs)
+          ]))
+          .spread((syncResponse, syncRecordsResponse) => Promise.all([
+            Promise.resolve(syncResponse),
+            // TODO: see TODO comment in syncDataset file and update here as appropriate
+            doSyncRecords('results', syncRecordsResponse)
+          ]))
+        // TODO: sync with acknowledgements again, this time with updated dataset hash
+          .spread((syncResponse, syncRecordsResponse) => Promise.all([
+            // TODO: sync with acknowledgements (with new dataset hash)
+            Promise.resolve(syncResponse),
+            Promise.resolve(syncRecordsResponse)
+          ]))
 
-        return Promise.all([
-          // create one result
-          act('Device: create New Result',
-              () => create('results', makeResult.createNew(), hashes.results))
-            .then(() => doSyncRecords('results', initialSyncRecordsResponses[datasets.indexOf('results')]))
-            .then(previousResultSyncRecordsResponse => Promise.all([
-              // TODO: sync with acknowledgements (still old dataset hash)
-              Promise.resolve({}),
-              Promise.resolve(previousResultSyncRecordsResponse)
-            ]))
-            .spread((syncResponse, syncRecordsResponse) => Promise.all([
-              Promise.resolve(syncResponse),
-              // TODO: see TODO comment in syncDataset file and update here as appropriate
-              doSyncRecords('results', syncRecordsResponse)
-            ]))
-          // TODO: sync with acknowledgements again, this time with updated dataset hash
-            .spread((syncResponse, syncRecordsResponse) => Promise.all([
-              // TODO: sync with acknowledgements (with new dataset hash)
-              Promise.resolve(syncResponse),
-              Promise.resolve(syncRecordsResponse)
-            ]))
-
-          // TODO: The below two steps will each need the steps that follow the above step also
-            .then(() => act('Device: sync In Progress result', () => create(
-              'results',
-              makeResult.updateInProgress(resultId, user.id, myWorkorderId),
-              hashes.results)))
-            .then(() => act('Device: sync Complete result', () => create(
-              'results',
-              makeResult.updateComplete(resultId, user.id, myWorkorderId),
-              hashes.results)))
-        ]);
-      })
-      .then(() => runner.actEnd('Mobile Flow'))
-      .then(() => sessionToken);
+        // TODO: The below two steps will each need the steps that follow the above step also
+          .then(() => act('Device: sync In Progress result', () => create(
+            'results',
+            makeResult.updateInProgress(resultId, user.id, myWorkorderId),
+            hashes.results)))
+          .then(() => act('Device: sync Complete result', () => create(
+            'results',
+            makeResult.updateComplete(resultId, user.id, myWorkorderId),
+            hashes.results)))
+          .then(() => runner.actEnd('Mobile Flow'))
+          .then(() => sessionToken));
   };
 };

@@ -2,28 +2,21 @@
 
 const _ = require('lodash');
 
-
-function updateClientRecs(inRecs, syncRecordsResponse) {
+function getUpdatedClientRecs(inRecs, syncRecordsResponse) {
   const deletedRecs = _.keys(syncRecordsResponse.delete);
-  const createdRecs = _.transform(syncRecordsResponse.create, (acc, rec) => acc[rec.data.id] = rec.hash);
-  const updatedRecs = _.transform(syncRecordsResponse.update, (acc, rec) => acc[rec.data.id] = rec.hash);
+  const createdRecs = _.transform(_.filter(syncRecordsResponse.create, rec => rec.data.id), (acc, rec) => acc[rec.data.id] = rec.hash, {});
+  const updatedRecs = _.transform(_.filter(syncRecordsResponse.update, rec => rec.data.id), (acc, rec) => acc[rec.data.id] = rec.hash, {});
   const outRecs = _.merge(_.omit(inRecs, deletedRecs), createdRecs, updatedRecs);
 
   return outRecs;
 }
 
-module.exports = function syncDataset(baseUrl, request, clientId, dataset, previousSyncRecordsResult) {
-
-  // TODO: use `updateClientRecs` function above so that updates and deletes are handled
-  // it'll mean that 'clientRecs' will need to be passed into (and out of) this function
-  // Maybe that updateClientRecs function should be somewhere else than this function, and just pass in the pre-processed clientRecs here, and not previousSyncrecordsresult (and old clientRecs)
-  const creations = _.get(previousSyncRecordsResult, 'create', {});
-  const clientRecs = _.transform(creations, (out, v, k) => out[k] = v.hash);
+module.exports = function syncDataset(baseUrl, request, clientId, dataset, clientRecs, query_params) {
 
   const payload = {
     fn: 'syncRecords',
     dataset_id: dataset,
-    query_params: {},
+    query_params: query_params || {},
     meta_data: {
       clientIdentifier: clientId
     },
@@ -34,5 +27,6 @@ module.exports = function syncDataset(baseUrl, request, clientId, dataset, previ
     url: `${baseUrl}/mbaas/sync/${dataset}`,
     body: payload,
     json: true
-  });
+  })
+    .then(res => getUpdatedClientRecs(clientRecs, res));
 };
