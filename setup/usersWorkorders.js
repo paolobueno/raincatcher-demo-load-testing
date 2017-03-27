@@ -88,7 +88,7 @@ function initialSync(previousResolution) {
     syncSingleDataset(sessionRequest, 'workorders'),
     syncSingleDataset(sessionRequest, 'workflows')
       .then(() => syncDataset(argv.app, sessionRequest, '1234', 'workflows'))
-      .then(r => _.find(r.create, wf => wf.data.title === 'Static forms').data.id),
+      .then(r => _.findKey(r, v => v === 'e54852b622778d521c35d767a4ad55071b088b70')),
 
     (workordersRes, workflowId) => {
       const resolution = {
