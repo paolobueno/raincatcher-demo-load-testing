@@ -80,6 +80,7 @@ function syncSingleDataset(rp, dataset) {
     json: true
   });
 }
+
 function initialSync(previousResolution) {
   const sessionRequest = previousResolution.sessionRequest;
   const users = previousResolution.users;
@@ -88,7 +89,7 @@ function initialSync(previousResolution) {
     syncSingleDataset(sessionRequest, 'workorders'),
     syncSingleDataset(sessionRequest, 'workflows')
       .then(() => syncDataset(argv.app, sessionRequest, '1234', 'workflows'))
-      .then(r => _.findKey(r, v => v === 'e54852b622778d521c35d767a4ad55071b088b70')),
+      .then(r => _.find(r.res.create, x => x.data.title === 'Static forms').data.id),
 
     (workordersRes, workflowId) => {
       const resolution = {

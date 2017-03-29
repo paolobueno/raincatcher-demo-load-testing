@@ -28,5 +28,8 @@ module.exports = function syncDataset(baseUrl, request, clientId, dataset, clien
     body: payload,
     json: true
   })
-    .then(res => getUpdatedClientRecs(clientRecs, res));
+    .then(res => ({
+      clientRecs: getUpdatedClientRecs(clientRecs, res),
+      res: res
+    }));
 };

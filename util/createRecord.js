@@ -14,7 +14,7 @@ function syncLoop(mainFn, compareFn, interval, initialSyncResult) {
   return new Promise(resolve => {
 
     function next(previousResult) {
-      mainFn(previousResult).then(result => {
+      return mainFn(previousResult).then(result => {
         if (compareFn(result)) {
           return resolve(result);
         } else {
@@ -29,9 +29,9 @@ function syncLoop(mainFn, compareFn, interval, initialSyncResult) {
     .timeout(120000);
 }
 
-module.exports = function createRecord(baseUrl, request, clientId, dataset, data, dataset_hash, query_params, acknowledgements, action) {
+module.exports = function createRecord(baseUrl, request, clientId, dataset, postData, preDataAndHash, dataset_hash, query_params, acknowledgements, action) {
 
-  const pending = [recordUtils.generateRecord(data, {}, action)];
+  const pending = [recordUtils.generateRecord(postData, preDataAndHash, {}, action)];
   const payload = makeSyncBody(dataset, clientId, dataset_hash, query_params, pending, acknowledgements);
 
   // This just partially applies sync so that it can be passed to the sync loop in the `.then` below

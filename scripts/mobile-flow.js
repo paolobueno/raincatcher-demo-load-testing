@@ -17,7 +17,7 @@ module.exports = function mobileFlow(runner, argv, clientId) {
 
     const baseUrl = argv.app;
     const request = configureRequest(clientId, sessionToken);
-    const datasets = ['workorders', 'workflows', 'messages', 'results'];
+    const datasets = ['workorders', 'workflows', 'messages', 'result'];
 
     // partially apply constant params so further calls are cleaner
     const create = createRecord.bind(this, baseUrl, request, clientId);
@@ -31,6 +31,7 @@ module.exports = function mobileFlow(runner, argv, clientId) {
       () => Promise.all(datasets.map(ds => doSync(`${baseUrl}/mbaas/sync/${ds}`, makeSyncBody(ds, clientId))))
       // Then do a syncRecords for each datasets (no clientRecs yet)
         .then(() => Promise.all(datasets.map(ds => doSyncRecords(ds, {}))))
+        .map(dsResponse => dsResponse.clientRecs)
       // Then do another sync of each dataset
         .then(clientRecs => Promise.all([
           Promise.all(datasets.map(ds => doSync(`${baseUrl}/mbaas/sync/${ds}`, makeSyncBody(ds, clientId)))),
@@ -54,40 +55,75 @@ module.exports = function mobileFlow(runner, argv, clientId) {
       Promise.resolve(user),
 
       doSyncRecords('workorders', {}, {filter: {key: 'assignee', value: user.id}})
-        .then(workorders => _.keys(workorders)[0]),
-      Promise.resolve(randomstring.generate(6))
+        .then(workorders => _.keys(workorders.clientRecs)[0])
     ]))
 
       .spread(
-        (hashes, clientRecs, user, myWorkorderId, resultId) =>
-          act('Device: create New Result', () => create('results', makeResult.createNew(), hashes.results, {}, [], 'create'))
-          .then(() => doSyncRecords('results', clientRecs[datasets.indexOf('results')]))
-          .then(clientRecs => Promise.all([
+        (hashes, clientRecs, user, myWorkorderId) =>
+          act('Device: create New Result', () => create('result', makeResult.createNew(), null, hashes.result, {}, [], 'create'))
+          .then(result => doSyncRecords('result', clientRecs[datasets.indexOf('result')])
+                .then(doSyncRecordsResult => Promise.all([
+                  Promise.resolve(result),
+                  Promise.resolve(_.find(
+                    _.get(doSyncRecordsResult, 'res.create', {}),
+                    r => r.data.id === _.map(result.updates.applied, a => a.uid)[0]
+                  )),
+                  Promise.resolve(doSyncRecordsResult.clientRecs)
+                ])))
+          .spread((syncResponse, createdRecord, clientRecs) => Promise.all([
             // TODO: sync with acknowledgements (still old dataset hash)
-            Promise.resolve({}),
-            Promise.resolve(clientRecs)
-          ]))
-          .spread((syncResponse, syncRecordsResponse) => Promise.all([
             Promise.resolve(syncResponse),
-            // TODO: see TODO comment in syncDataset file and update here as appropriate
-            doSyncRecords('results', syncRecordsResponse)
+            Promise.resolve(createdRecord),
+            Promise.resolve(clientRecs)
+
           ]))
+          .spread((syncResponse, createdRecord, clientRecs) =>
+                  doSyncRecords('result', clientRecs)
+                  .then(doSyncRecordsResult => Promise.all([
+                    Promise.resolve(syncResponse),
+                    Promise.resolve(createdRecord),
+                    Promise.resolve(doSyncRecordsResult.clientRecs)
+                  ])))
         // TODO: sync with acknowledgements again, this time with updated dataset hash
-          .spread((syncResponse, syncRecordsResponse) => Promise.all([
+          .spread((syncResponse, createdRecord, clientRecs) => Promise.all([
             // TODO: sync with acknowledgements (with new dataset hash)
             Promise.resolve(syncResponse),
-            Promise.resolve(syncRecordsResponse)
+            Promise.resolve(createdRecord),
+            Promise.resolve(clientRecs)
           ]))
 
         // TODO: The below two steps will each need the steps that follow the above step also
-          .then(() => act('Device: sync In Progress result', () => create(
-            'results',
-            makeResult.updateInProgress(resultId, user.id, myWorkorderId),
-            hashes.results, {}, [], 'update')))
-          .then(() => act('Device: sync Complete result', () => create(
-            'results',
-            makeResult.updateComplete(resultId, user.id, myWorkorderId),
-            hashes.results, {}, [], 'update')))
+          .spread((syncResponse, createdRecord, clientRecs) => act('Device: sync In Progress result', () => create(
+            'result',
+            makeResult.updateInProgress(createdRecord.data.id, user.id, myWorkorderId),
+            createdRecord, hashes.result, {}, [], 'update'))
+                  .then(result => doSyncRecords('result', clientRecs[datasets.indexOf('result')])
+                        .then(doSyncRecordsResult => Promise.all([
+                          Promise.resolve(result),
+                          Promise.resolve(_.find(
+                            _.get(doSyncRecordsResult, 'res.create', {}),
+                            r => r.data.id === _.map(result.updates.applied, a => a.uid)[0]
+                          )),
+                          Promise.resolve(doSyncRecordsResult.clientRecs)
+                        ])))
+                  .spread((syncResponse, updatedRecord, clientRecs) => Promise.all([
+                    // TODO: sync with acknowledgements (still old dataset hash)
+                    Promise.resolve(syncResponse),
+                    Promise.resolve(updatedRecord),
+                    Promise.resolve(clientRecs)
+
+                  ]))
+                  .spread((syncResponse, updatedRecord, clientRecs) =>
+                          doSyncRecords('result', clientRecs)
+                          .then(doSyncRecordsResult => Promise.all([
+                            Promise.resolve(syncResponse),
+                            Promise.resolve(updatedRecord),
+                            Promise.resolve(doSyncRecordsResult.clientRecs)
+                          ]))))
+          .spread((syncResponse, updatedRecord, clientRecs) => act('Device: sync Complete result', () => create(
+            'result',
+            makeResult.updateComplete(updatedRecord.data.id, user.id, myWorkorderId),
+            updatedRecord, hashes.result, {}, [], 'update')))
           .then(() => runner.actEnd('Mobile Flow'))
           .then(() => sessionToken));
   };
