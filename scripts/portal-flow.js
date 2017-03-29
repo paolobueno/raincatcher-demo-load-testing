@@ -63,11 +63,9 @@ module.exports = function portalFlow(runner, argv, clientId) {
                 Promise.resolve(doSyncRecordsResult.clientRecs)
               ])))
         .spread((syncResponse, createdRecord, clientRecs) => Promise.all([
-          // TODO: sync with acknowledgements (still old dataset hash)
-          Promise.resolve(syncResponse),
+          doSync(`${baseUrl}/mbaas/sync/workflows`, makeSyncBody('workflows', clientId, syncResponse.hash, {}, [], _.values(_.get(syncResponse, 'updates.applied')))),
           Promise.resolve(createdRecord),
           Promise.resolve(clientRecs)
-
         ]))
         .spread((syncResponse, createdRecord, clientRecs) =>
                 doSyncRecords('result', clientRecs)
@@ -76,10 +74,8 @@ module.exports = function portalFlow(runner, argv, clientId) {
                   Promise.resolve(createdRecord),
                   Promise.resolve(doSyncRecordsResult.clientRecs)
                 ])))
-      // TODO: sync with acknowledgements again, this time with updated dataset hash
         .spread((syncResponse, createdRecord, clientRecs) => Promise.all([
-          // TODO: sync with acknowledgements (with new dataset hash)
-          Promise.resolve(syncResponse),
+          doSync(`${baseUrl}/mbaas/sync/workflows`, makeSyncBody('workflows', clientId, syncResponse.hash, {}, [], _.values(_.get(syncResponse, 'updates.applied')))),
           Promise.resolve(createdRecord),
           Promise.resolve(clientRecs)
         ]))
@@ -97,8 +93,7 @@ module.exports = function portalFlow(runner, argv, clientId) {
                   Promise.resolve(doSyncRecordsResult.clientRecs)
                 ])))
           .spread((syncResponse, createdRecord, clientRecs) => Promise.all([
-            // TODO: sync with acknowledgements (still old dataset hash)
-            Promise.resolve(syncResponse),
+            doSync(`${baseUrl}/mbaas/sync/workorders`, makeSyncBody('workorders', clientId, syncResponse.hash, {}, [], _.values(_.get(syncResponse, 'updates.applied')))),
             Promise.resolve(createdRecord),
             Promise.resolve(clientRecs)
 
@@ -110,10 +105,8 @@ module.exports = function portalFlow(runner, argv, clientId) {
                     Promise.resolve(createdRecord),
                     Promise.resolve(doSyncRecordsResult.clientRecs)
                   ])))
-        // TODO: sync with acknowledgements again, this time with updated dataset hash
           .spread((syncResponse, createdRecord, clientRecs) => Promise.all([
-            // TODO: sync with acknowledgements (with new dataset hash)
-            Promise.resolve(syncResponse),
+            doSync(`${baseUrl}/mbaas/sync/workorders`, makeSyncBody('workorders', clientId, syncResponse.hash, {}, [], _.values(_.get(syncResponse, 'updates.applied')))),
             Promise.resolve(createdRecord),
             Promise.resolve(clientRecs)
           ])),
@@ -128,8 +121,7 @@ module.exports = function portalFlow(runner, argv, clientId) {
                   Promise.resolve(doSyncRecordsResult.clientRecs)
                 ])))
           .spread((syncResponse, createdRecord, clientRecs) => Promise.all([
-            // TODO: sync with acknowledgements (still old dataset hash)
-            Promise.resolve(syncResponse),
+            doSync(`${baseUrl}/mbaas/sync/messages`, makeSyncBody('messages', clientId, syncResponse.hash, {}, [], _.values(_.get(syncResponse, 'updates.applied')))),
             Promise.resolve(createdRecord),
             Promise.resolve(clientRecs)
 
@@ -141,10 +133,8 @@ module.exports = function portalFlow(runner, argv, clientId) {
                     Promise.resolve(createdRecord),
                     Promise.resolve(doSyncRecordsResult.clientRecs)
                   ])))
-        // TODO: sync with acknowledgements again, this time with updated dataset hash
           .spread((syncResponse, createdRecord, clientRecs) => Promise.all([
-            // TODO: sync with acknowledgements (with new dataset hash)
-            Promise.resolve(syncResponse),
+            doSync(`${baseUrl}/mbaas/sync/messages`, makeSyncBody('messages', clientId, syncResponse.hash, {}, [], _.values(_.get(syncResponse, 'updates.applied')))),
             Promise.resolve(createdRecord),
             Promise.resolve(clientRecs)
           ]))
