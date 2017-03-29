@@ -10,6 +10,7 @@ const promiseAct = require('../util/promiseAct');
 const makeSyncBody = require('../util/fixtures/makeSyncBody');
 const makeResult = require('../util/fixtures/makeResult');
 const queryParams = require('../util/fixtures/queryParams');
+const acknowledge = require('../util/acknowledge');
 
 module.exports = function mobileFlow(runner, argv, clientId) {
   return function mobileFlowAct(sessionToken) {
@@ -23,6 +24,7 @@ module.exports = function mobileFlow(runner, argv, clientId) {
     const create = createRecord.bind(this, baseUrl, request, clientId);
     const doSync = sync.bind(this, request);
     const doSyncRecords = syncDataset.bind(this, baseUrl, request, clientId);
+    const doAcknowledge = acknowledge.bind(this, doSync, doSyncRecords, makeSyncBody, baseUrl, clientId, datasets);
     const act = promiseAct.bind(this, runner);
 
     const syncPromise = request.get({url: `${baseUrl}/api/wfm/user`})
@@ -59,81 +61,20 @@ module.exports = function mobileFlow(runner, argv, clientId) {
       .spread(
         (hashes, clientRecs, user, myWorkorderId) =>
           act('Device: create New Result', () => create('result', makeResult.createNew(), null, hashes.result, queryParams(user.id).result, [], 'create'))
-          .then(result => doSyncRecords('result', clientRecs[datasets.indexOf('result')], queryParams(user.id).result)
-                .then(doSyncRecordsResult => Promise.all([
-                  Promise.resolve(result),
-                  Promise.resolve(_.find(
-                    _.get(doSyncRecordsResult, 'res.create', {}),
-                    r => r.data.id === _.map(result.updates.applied, a => a.uid)[0]
-                  )),
-                  Promise.resolve(doSyncRecordsResult.clientRecs)
-                ])))
-          .spread((syncResponse, createdRecord, clientRecs) => Promise.all([
-            doSync(`${baseUrl}/mbaas/sync/result`, makeSyncBody('result', clientId, syncResponse.hash, queryParams(user.id).result, null, _.values(_.get(syncResponse, 'updates.applied')))),
-            Promise.resolve(createdRecord),
-            Promise.resolve(clientRecs)
+          .then(res => doAcknowledge('result', clientRecs[datasets.indexOf('result')], res))
 
-          ]))
-          .spread((syncResponse, createdRecord, clientRecs) =>
-                  doSyncRecords('result', clientRecs, queryParams(user.id).result)
-                  .then(doSyncRecordsResult => Promise.all([
-                    Promise.resolve(syncResponse),
-                    Promise.resolve(createdRecord),
-                    Promise.resolve(doSyncRecordsResult.clientRecs)
-                  ])))
-          .spread((syncResponse, createdRecord, clientRecs) => Promise.all([
-            doSync(`${baseUrl}/mbaas/sync/result`, makeSyncBody('result', clientId, syncResponse.hash, queryParams(user.id).result, null, _.values(_.get(syncResponse, 'updates.applied')))),
-            Promise.resolve(createdRecord),
-            Promise.resolve(clientRecs)
-          ]))
-
-          .spread((syncResponse, createdRecord, clientRecs) => act('Device: sync In Progress result', () => create(
+          .spread((syncResponse, createdRecord, resultDatasetClientRecs) => act('Device: sync In Progress result', () => create(
             'result',
             makeResult.updateInProgress(createdRecord.data.id, user.id, myWorkorderId),
             createdRecord, hashes.result, queryParams(user.id).result, [], 'update'))
-                  .then(result => doSyncRecords('result', clientRecs[datasets.indexOf('result')], queryParams(user.id).result)
-                        .then(doSyncRecordsResult => Promise.all([
-                          Promise.resolve(result),
-                          Promise.resolve(_.find(
-                            _.get(doSyncRecordsResult, 'res.create', {}),
-                            r => r.data.id === _.map(result.updates.applied, a => a.uid)[0]
-                          )),
-                          Promise.resolve(doSyncRecordsResult.clientRecs)
-                        ])))
-                  .spread((syncResponse, updatedRecord, clientRecs) => Promise.all([
-                    doSync(`${baseUrl}/mbaas/sync/result`, makeSyncBody('result', clientId, syncResponse.hash, queryParams(user.id).result, null, _.values(_.get(syncResponse, 'updates.applied')))),
-                    Promise.resolve(updatedRecord),
-                    Promise.resolve(clientRecs)
+                  .then(res => doAcknowledge('result', resultDatasetClientRecs, res)))
 
-                  ]))
-                  .spread((syncResponse, updatedRecord, clientRecs) =>
-                          doSyncRecords('result', clientRecs, queryParams(user.id).result)
-                          .then(doSyncRecordsResult => Promise.all([
-                            Promise.resolve(syncResponse),
-                            Promise.resolve(updatedRecord),
-                            Promise.resolve(doSyncRecordsResult.clientRecs)
-                          ]))))
-
-          .spread((syncResponse, updatedRecord, clientRecs) => act('Device: sync Complete result', () => create(
+          .spread((syncResponse, updatedRecord, resultDatasetClientRecs) => act('Device: sync Complete result', () => create(
             'result',
             makeResult.updateComplete(updatedRecord.data.id, user.id, myWorkorderId),
             updatedRecord, hashes.result, queryParams(user.id).result, [], 'update'))
-                  .then(result => doSyncRecords('result', clientRecs[datasets.indexOf('result')], queryParams(user.id).result)
-                        .then(doSyncRecordsResult => Promise.all([
-                          Promise.resolve(result),
-                          Promise.resolve(_.find(
-                            _.get(doSyncRecordsResult, 'res.create', {}),
-                            r => r.data.id === _.map(result.updates.applied, a => a.uid)[0]
-                          )),
-                          Promise.resolve(doSyncRecordsResult.clientRecs)
-                        ])))
-                  .spread((syncResponse, updatedRecord, clientRecs) => Promise.all([
-                    doSync(`${baseUrl}/mbaas/sync/result`, makeSyncBody('result', clientId, syncResponse.hash, queryParams(user.id).result, null, _.values(_.get(syncResponse, 'updates.applied')))),
-                    Promise.resolve(updatedRecord),
-                    Promise.resolve(clientRecs)
-
-                  ])))
-          .then(() => runner.actEnd('Mobile Flow'))
-          .then(() => sessionToken));
+                  .then(res => doAcknowledge('result', resultDatasetClientRecs, res))))
+      .then(() => runner.actEnd('Mobile Flow'))
+      .then(() => sessionToken);
   };
 };
