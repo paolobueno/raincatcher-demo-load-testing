@@ -69,8 +69,7 @@ module.exports = function mobileFlow(runner, argv, clientId) {
                   Promise.resolve(doSyncRecordsResult.clientRecs)
                 ])))
           .spread((syncResponse, createdRecord, clientRecs) => Promise.all([
-            // TODO: sync with acknowledgements (still old dataset hash)
-            Promise.resolve(syncResponse),
+            doSync(`${baseUrl}/mbaas/sync/result`, makeSyncBody('result', clientId, syncResponse.hash, queryParams(user.id).result, null, _.values(_.get(syncResponse, 'updates.applied')))),
             Promise.resolve(createdRecord),
             Promise.resolve(clientRecs)
 
@@ -82,15 +81,12 @@ module.exports = function mobileFlow(runner, argv, clientId) {
                     Promise.resolve(createdRecord),
                     Promise.resolve(doSyncRecordsResult.clientRecs)
                   ])))
-        // TODO: sync with acknowledgements again, this time with updated dataset hash
           .spread((syncResponse, createdRecord, clientRecs) => Promise.all([
-            // TODO: sync with acknowledgements (with new dataset hash)
-            Promise.resolve(syncResponse),
+            doSync(`${baseUrl}/mbaas/sync/result`, makeSyncBody('result', clientId, syncResponse.hash, queryParams(user.id).result, null, _.values(_.get(syncResponse, 'updates.applied')))),
             Promise.resolve(createdRecord),
             Promise.resolve(clientRecs)
           ]))
 
-        // TODO: The below two steps will each need the steps that follow the above step also
           .spread((syncResponse, createdRecord, clientRecs) => act('Device: sync In Progress result', () => create(
             'result',
             makeResult.updateInProgress(createdRecord.data.id, user.id, myWorkorderId),
@@ -105,8 +101,7 @@ module.exports = function mobileFlow(runner, argv, clientId) {
                           Promise.resolve(doSyncRecordsResult.clientRecs)
                         ])))
                   .spread((syncResponse, updatedRecord, clientRecs) => Promise.all([
-                    // TODO: sync with acknowledgements (still old dataset hash)
-                    Promise.resolve(syncResponse),
+                    doSync(`${baseUrl}/mbaas/sync/result`, makeSyncBody('result', clientId, syncResponse.hash, queryParams(user.id).result, null, _.values(_.get(syncResponse, 'updates.applied')))),
                     Promise.resolve(updatedRecord),
                     Promise.resolve(clientRecs)
 
@@ -118,10 +113,26 @@ module.exports = function mobileFlow(runner, argv, clientId) {
                             Promise.resolve(updatedRecord),
                             Promise.resolve(doSyncRecordsResult.clientRecs)
                           ]))))
+
           .spread((syncResponse, updatedRecord, clientRecs) => act('Device: sync Complete result', () => create(
             'result',
             makeResult.updateComplete(updatedRecord.data.id, user.id, myWorkorderId),
-            updatedRecord, hashes.result, queryParams(user.id).result, [], 'update')))
+            updatedRecord, hashes.result, queryParams(user.id).result, [], 'update'))
+                  .then(result => doSyncRecords('result', clientRecs[datasets.indexOf('result')], queryParams(user.id).result)
+                        .then(doSyncRecordsResult => Promise.all([
+                          Promise.resolve(result),
+                          Promise.resolve(_.find(
+                            _.get(doSyncRecordsResult, 'res.create', {}),
+                            r => r.data.id === _.map(result.updates.applied, a => a.uid)[0]
+                          )),
+                          Promise.resolve(doSyncRecordsResult.clientRecs)
+                        ])))
+                  .spread((syncResponse, updatedRecord, clientRecs) => Promise.all([
+                    doSync(`${baseUrl}/mbaas/sync/result`, makeSyncBody('result', clientId, syncResponse.hash, queryParams(user.id).result, null, _.values(_.get(syncResponse, 'updates.applied')))),
+                    Promise.resolve(updatedRecord),
+                    Promise.resolve(clientRecs)
+
+                  ])))
           .then(() => runner.actEnd('Mobile Flow'))
           .then(() => sessionToken));
   };
