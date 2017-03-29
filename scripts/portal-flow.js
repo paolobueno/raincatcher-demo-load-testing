@@ -1,5 +1,6 @@
 'use strict';
 
+const _ = require('lodash');
 const configureRequest = require('../util/configureRequest');
 const sync = require('../util/sync.js');
 const syncDataset = require('../util/syncDataset');
@@ -19,7 +20,7 @@ module.exports = function portalFlow(runner, argv, clientId) {
 
     const baseUrl = argv.app;
     const request = configureRequest(clientId, sessionToken);
-    const datasets = ['workorders', 'workflows', 'messages', 'results'];
+    const datasets = ['workorders', 'workflows', 'messages', 'result'];
     const workflow = makeWorkflow(process.env.LR_RUN_NUMBER);
 
     // partially apply constant params so further calls are cleaner
@@ -33,35 +34,120 @@ module.exports = function portalFlow(runner, argv, clientId) {
       // First do a sync of each dataset
       () => Promise.all(datasets.map(ds => doSync(`${baseUrl}/mbaas/sync/${ds}`, makeSyncBody(ds, clientId))))
       // Then do a syncRecords for each datasets (no clientRecs yet)
-        .then(syncResults => Promise.all([
-          Promise.resolve(syncResults),
-          Promise.all(datasets.map(doSyncRecords))
-        ]))
+        .then(() => Promise.all(datasets.map(ds => doSyncRecords(ds, {}))))
+        .map(dsResponse => dsResponse.clientRecs)
       // Then do another sync of each dataset
-        .spread((syncResults, syncRecordsResults) => Promise.all([
+        .then(clientRecs => Promise.all([
           Promise.all(datasets.map(ds => doSync(`${baseUrl}/mbaas/sync/${ds}`, makeSyncBody(ds, clientId)))),
-          Promise.resolve(syncRecordsResults)
+          Promise.resolve(clientRecs)
         ]))
       // Then do another syncRecords, this time with clientRecs
-        .spread((syncResults, syncRecordsResults) => Promise.all([
-          Promise.resolve(syncResults),
-          () => Promise.all(datasets.map(ds => doSyncRecords(ds, syncRecordsResults[datasets.indexOf(ds)])))
+        .spread((syncResults, clientRecs) => Promise.all([
+          // TODO: in the browser, I see a hash in the response from syncRecords, but not here in the script
+          Promise.resolve(_.zipObject(datasets, syncResults.map(x => x.hash))),
+          Promise.all(datasets.map(ds => doSyncRecords(ds, clientRecs[datasets.indexOf(ds)])))
         ])));
 
-    return syncPromise.spread((syncResults, syncRecordsResults) => Promise.all([
-      Promise.resolve(syncResults),
-      Promise.resolve(syncRecordsResults),
-      act('Portal: create user and group',
-          () => createUserAndGroup(request, baseUrl, makeUser(`-portalflow${process.env.LR_RUN_NUMBER}`))),
-      act('Portal: create workflow',
-          () => create('workflows', workflow, syncResults[datasets.indexOf('workflows')].hash))
+    return syncPromise.spread((hashes, clientRecs) => Promise.all([
+      Promise.resolve(hashes),
+      Promise.resolve(clientRecs),
+      act('Portal: create user and group', () => createUserAndGroup(request, baseUrl, makeUser(`-portalflow${process.env.LR_RUN_NUMBER}`))),
+      act('Portal: create workflow', () => create('workflows', workflow, null, hashes.workflows, {}, [], 'create'))
+        .then(workflow => doSyncRecords('workflows', clientRecs[datasets.indexOf('result')])
+              .then(doSyncRecordsResult => Promise.all([
+                Promise.resolve(workflow),
+                Promise.resolve(_.find(
+                  _.get(doSyncRecordsResult, 'res.create', {}),
+                  r => r.data.id === _.map(workflow.updates.applied, a => a.uid)[0]
+                )),
+                Promise.resolve(doSyncRecordsResult.clientRecs)
+              ])))
+        .spread((syncResponse, createdRecord, clientRecs) => Promise.all([
+          // TODO: sync with acknowledgements (still old dataset hash)
+          Promise.resolve(syncResponse),
+          Promise.resolve(createdRecord),
+          Promise.resolve(clientRecs)
+
+        ]))
+        .spread((syncResponse, createdRecord, clientRecs) =>
+                doSyncRecords('result', clientRecs)
+                .then(doSyncRecordsResult => Promise.all([
+                  Promise.resolve(syncResponse),
+                  Promise.resolve(createdRecord),
+                  Promise.resolve(doSyncRecordsResult.clientRecs)
+                ])))
+      // TODO: sync with acknowledgements again, this time with updated dataset hash
+        .spread((syncResponse, createdRecord, clientRecs) => Promise.all([
+          // TODO: sync with acknowledgements (with new dataset hash)
+          Promise.resolve(syncResponse),
+          Promise.resolve(createdRecord),
+          Promise.resolve(clientRecs)
+        ]))
     ]))
 
-      .spread((syncResults, syncRecordsResults, user, workflowCreationResult) => Promise.all([
-        act('Portal: create workorder',
-            () => create('workorders', makeWorkorder(String(user.id), String(workflow.id)), syncResults[datasets.indexOf('workorders')].hash)),
-        act('Portal: create message',
-            () => create('messages', makeMessage(user), syncResults[datasets.indexOf('messages')].hash))
+      .spread((hashes, clientRecs, user, workflowCreationResult) => Promise.all([
+        act('Portal: create workorder', () => create('workorders', makeWorkorder(String(user.id), String(workflow.id)), null, hashes.workorders, {}, [], 'create'))
+          .then(workorder => doSyncRecords('workorders', clientRecs[datasets.indexOf('result')])
+                .then(doSyncRecordsResult => Promise.all([
+                  Promise.resolve(workorder),
+                  Promise.resolve(_.find(
+                    _.get(doSyncRecordsResult, 'res.create', {}),
+                    r => r.data.id === _.map(workorder.updates.applied, a => a.uid)[0]
+                  )),
+                  Promise.resolve(doSyncRecordsResult.clientRecs)
+                ])))
+          .spread((syncResponse, createdRecord, clientRecs) => Promise.all([
+            // TODO: sync with acknowledgements (still old dataset hash)
+            Promise.resolve(syncResponse),
+            Promise.resolve(createdRecord),
+            Promise.resolve(clientRecs)
+
+          ]))
+          .spread((syncResponse, createdRecord, clientRecs) =>
+                  doSyncRecords('result', clientRecs)
+                  .then(doSyncRecordsResult => Promise.all([
+                    Promise.resolve(syncResponse),
+                    Promise.resolve(createdRecord),
+                    Promise.resolve(doSyncRecordsResult.clientRecs)
+                  ])))
+        // TODO: sync with acknowledgements again, this time with updated dataset hash
+          .spread((syncResponse, createdRecord, clientRecs) => Promise.all([
+            // TODO: sync with acknowledgements (with new dataset hash)
+            Promise.resolve(syncResponse),
+            Promise.resolve(createdRecord),
+            Promise.resolve(clientRecs)
+          ])),
+        act('Portal: create message', () => create('messages', makeMessage(user), null, hashes.messages, {}, [], 'create'))
+          .then(message => doSyncRecords('messages', clientRecs[datasets.indexOf('result')])
+                .then(doSyncRecordsResult => Promise.all([
+                  Promise.resolve(message),
+                  Promise.resolve(_.find(
+                    _.get(doSyncRecordsResult, 'res.create', {}),
+                    r => r.data.id === _.map(message.updates.applied, a => a.uid)[0]
+                  )),
+                  Promise.resolve(doSyncRecordsResult.clientRecs)
+                ])))
+          .spread((syncResponse, createdRecord, clientRecs) => Promise.all([
+            // TODO: sync with acknowledgements (still old dataset hash)
+            Promise.resolve(syncResponse),
+            Promise.resolve(createdRecord),
+            Promise.resolve(clientRecs)
+
+          ]))
+          .spread((syncResponse, createdRecord, clientRecs) =>
+                  doSyncRecords('result', clientRecs)
+                  .then(doSyncRecordsResult => Promise.all([
+                    Promise.resolve(syncResponse),
+                    Promise.resolve(createdRecord),
+                    Promise.resolve(doSyncRecordsResult.clientRecs)
+                  ])))
+        // TODO: sync with acknowledgements again, this time with updated dataset hash
+          .spread((syncResponse, createdRecord, clientRecs) => Promise.all([
+            // TODO: sync with acknowledgements (with new dataset hash)
+            Promise.resolve(syncResponse),
+            Promise.resolve(createdRecord),
+            Promise.resolve(clientRecs)
+          ]))
       ]))
 
       .then(() => runner.actEnd('Portal Flow'))

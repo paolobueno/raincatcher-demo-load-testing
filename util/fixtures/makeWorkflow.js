@@ -10,8 +10,7 @@ module.exports = function makeWorkflow(id) {
           "view": "<p>hello</p>"
         },
         "code": "t1",
-        "name": "test step",
-        "$$hashKey": "object:1563"
+        "name": "test step"
       }
     ]
   };

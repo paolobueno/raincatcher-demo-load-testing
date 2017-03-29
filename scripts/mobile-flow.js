@@ -9,7 +9,6 @@ const createRecord = require('../util/createRecord');
 const promiseAct = require('../util/promiseAct');
 const makeSyncBody = require('../util/fixtures/makeSyncBody');
 const makeResult = require('../util/fixtures/makeResult');
-const randomstring = require('randomstring');
 
 module.exports = function mobileFlow(runner, argv, clientId) {
   return function mobileFlowAct(sessionToken) {
