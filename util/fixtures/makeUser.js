@@ -3,7 +3,7 @@
 module.exports = function makeUser(id) {
   return {
     "password": "123",
-    "name" : "Jim Loader",
+    "name" : `loaduser${id}`,
     "phone" : "(999) 999 9999",
     "username" : `loaduser${id}`,
     "group": "Syl1GdSS", // Drivers
