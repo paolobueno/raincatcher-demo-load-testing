@@ -3,47 +3,78 @@
 const _ = require('lodash');
 const Promise = require('bluebird');
 const configureRequest = require('../util/configureRequest');
+const sync = require('../util/sync');
 const syncDataset = require('../util/syncDataset');
 const createRecord = require('../util/createRecord');
 const promiseAct = require('../util/promiseAct');
-const syncResultsToArray = require('../util/syncResultsToArray');
+const makeSyncBody = require('../util/fixtures/makeSyncBody');
 const makeResult = require('../util/fixtures/makeResult');
-const randomstring = require('randomstring');
+const queryParams = require('../util/fixtures/queryParams');
+const acknowledge = require('../util/acknowledge');
 
-module.exports = function mobileFlow(runner, argv) {
-  return function mobileFlowAct(previousResolution) {
+module.exports = function mobileFlow(runner, argv, clientId) {
+  return function mobileFlowAct(sessionToken) {
     runner.actStart('Mobile Flow');
 
     const baseUrl = argv.app;
-    const clientId = previousResolution.clientIdentifier;
-    const request = configureRequest(clientId, previousResolution.sessionToken);
+    const request = configureRequest(clientId, sessionToken);
+    const datasets = ['workorders', 'workflows', 'messages', 'result'];
+
+    // partially apply constant params so further calls are cleaner
     const create = createRecord.bind(this, baseUrl, request, clientId);
-    const doSync = syncDataset.bind(this, baseUrl, request, clientId);
-    const datasets = ['workorders', 'workflows', 'messages', 'results'];
+    const doSync = sync.bind(this, request);
+    const doSyncRecords = syncDataset.bind(this, baseUrl, request, clientId);
+    const doAcknowledge = acknowledge.bind(this, doSync, doSyncRecords, makeSyncBody, baseUrl, clientId, datasets);
     const act = promiseAct.bind(this, runner);
 
-    return Promise.join(
-      act('Device: initialSync', () => Promise.all(datasets.map(doSync))),
-      request.get({
-        url: `${baseUrl}/api/wfm/user`
-      }),
-      (syncData, users) => {
-        const data = syncResultsToArray(syncData);
-        const workorders = data[0];
-        const user = _.find(users, {username: `loaduser${process.env.LR_RUN_NUMBER}`});
-        const resultId = randomstring.generate(6);
+    const syncPromise = request.get({url: `${baseUrl}/api/wfm/user`})
+          .then(users => _.find(users, {username: `loaduser${process.env.LR_RUN_NUMBER}`}))
+          .then(user => act(
+            'Initial sync and syncRecords dance',
+            // First do a sync of each dataset
+            () => Promise.all(datasets.map(ds => doSync(`${baseUrl}/mbaas/sync/${ds}`, makeSyncBody(ds, clientId, null, queryParams(user.id)[ds]))))
+            // Then do a syncRecords for each datasets (no clientRecs yet)
+              .then(() => Promise.all(datasets.map(ds => doSyncRecords(ds, {}, queryParams(user.id)[ds]))))
+              .map(dsResponse => dsResponse.clientRecs)
+            // Then do another sync of each dataset
+              .then(clientRecs => Promise.all([
+                Promise.all(datasets.map(ds => doSync(`${baseUrl}/mbaas/sync/${ds}`, makeSyncBody(ds, clientId, null, queryParams(user.id)[ds])))),
+                Promise.resolve(clientRecs)
+              ]))
+            // Then do another syncRecords, this time with clientRecs
+              .spread((syncResults, clientRecs) => Promise.all([
+                // TODO: in the browser, I see a hash in the response from syncRecords, but not here in the script
+                Promise.resolve(_.zipObject(datasets, syncResults.map(x => x.hash))),
+                Promise.all(datasets.map(ds => doSyncRecords(ds, clientRecs[datasets.indexOf(ds)], queryParams(user.id)[ds]))),
+                Promise.resolve(user)
+              ]))));
 
-        return Promise.all([
-          // create one result
-          act('Device: create New Result', () => create('results',
-            makeResult.createNew()))
-            .then(() => act('Device: sync In Progress result', () => create('results',
-              makeResult.updateInProgress(resultId, user.id, workorders[0].id), syncData[datasets.indexOf('results')].hash, 'update')))
-            .then(() => act('Device: sync Complete result', () => create('results',
-              makeResult.updateComplete(resultId, user.id, workorders[0].id), syncData[datasets.indexOf('results')].hash, 'update')))
-        ]);
-      })
+    return syncPromise.spread((hashes, clientRecs, user) => Promise.all([
+      Promise.resolve(hashes),
+      Promise.resolve(clientRecs),
+      Promise.resolve(user),
+
+      doSyncRecords('workorders', {}, queryParams(user.id).workorders)
+        .then(workorders => _.keys(workorders.clientRecs)[0])
+    ]))
+
+      .spread(
+        (hashes, clientRecs, user, myWorkorderId) =>
+          act('Device: create New Result', () => create('result', makeResult.createNew(), null, hashes.result, queryParams(user.id).result, [], 'create'))
+          .then(res => doAcknowledge('result', clientRecs[datasets.indexOf('result')], res))
+
+          .spread((syncResponse, createdRecord, resultDatasetClientRecs) => act('Device: sync In Progress result', () => create(
+            'result',
+            makeResult.updateInProgress(createdRecord.data.id, user.id, myWorkorderId),
+            createdRecord, hashes.result, queryParams(user.id).result, [], 'update'))
+                  .then(res => doAcknowledge('result', resultDatasetClientRecs, res)))
+
+          .spread((syncResponse, updatedRecord, resultDatasetClientRecs) => act('Device: sync Complete result', () => create(
+            'result',
+            makeResult.updateComplete(updatedRecord.data.id, user.id, myWorkorderId),
+            updatedRecord, hashes.result, queryParams(user.id).result, [], 'update'))
+                  .then(res => doAcknowledge('result', resultDatasetClientRecs, res))))
       .then(() => runner.actEnd('Mobile Flow'))
-      .then(() => previousResolution);
+      .then(() => sessionToken);
   };
 };

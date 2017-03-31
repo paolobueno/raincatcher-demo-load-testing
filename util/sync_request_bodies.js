@@ -35,7 +35,11 @@ function getBaseSyncBody() {
       "has_custom_sync": false,
       "icloud_backup": false
     },
-    meta_data: {},
+    meta_data: {
+      sync_frequency: 5,
+      storage_strategy: "dom",
+      do_console_log: false
+    },
     dataset_hash: 'c3893f5314ca1a5e01b961497dafba3fb938aa3d',
     acknowledgements: [],
     pending: []

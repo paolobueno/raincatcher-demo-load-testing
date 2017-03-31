@@ -11,6 +11,7 @@ const requestBodyUtils = require('../util/sync_request_bodies');
 const makeUser = require('../util/fixtures/makeUser');
 const makeWorkorder = require('../util/fixtures/makeWorkorder');
 const createUserAndGroup = require('../util/createUserAndGroup');
+const syncDataset = require('../util/syncDataset');
 
 const argv = require('yargs')
       .reset()
@@ -67,36 +68,48 @@ function postUsers(sessionToken, numUsers, concurrency) {
     }).catch(console.error);
 }
 
+function syncSingleDataset(rp, dataset) {
+  const reqBody = requestBodyUtils.getSyncRequestBody({
+    dataset_id: dataset,
+    pending: []
+  });
+
+  return rp.post({
+    url: `${argv.app}/mbaas/sync/${dataset}`,
+    body: reqBody,
+    json: true
+  });
+}
+
 function initialSync(previousResolution) {
   const sessionRequest = previousResolution.sessionRequest;
   const users = previousResolution.users;
 
-  const reqBody = requestBodyUtils.getSyncRequestBody({
-    dataset_id: 'workorders',
-    pending: []
-  });
+  return new Promise(resolve => Promise.join(
+    syncSingleDataset(sessionRequest, 'workorders'),
+    syncSingleDataset(sessionRequest, 'workflows')
+      .then(() => syncDataset(argv.app, sessionRequest, '1234', 'workflows'))
+      .then(r => _.find(r.res.create, x => x.data.title === 'Static forms').data.id),
 
-  return new Promise(resolve => sessionRequest.post({
-    url: `${argv.app}/mbaas/sync/workorders`,
-    body: reqBody,
-    json: true
-  }).then(resBody => {
-    const resolution = {
-      users: users,
-      serverHash: resBody.hash,
-      sessionRequest: sessionRequest
-    };
-    return resolve(resolution);
-  }));
+    (workordersRes, workflowId) => {
+      const resolution = {
+        users: users,
+        workflowId: workflowId,
+        serverHash: workordersRes.hash,
+        sessionRequest: sessionRequest
+      };
+      return resolve(resolution);
+    }));
 }
 
 function makeWorkorderRecords(previousResolution) {
   const users = previousResolution.users;
   const serverHash = previousResolution.serverHash;
   const sessionRequest = previousResolution.sessionRequest;
+  const workflowId = previousResolution.workflowId;
 
   const records = users.map(user =>
-    recordUtils.generateRecord(makeWorkorder(user)));
+    recordUtils.generateRecord(makeWorkorder(user, workflowId)));
 
   return {
     records: records,

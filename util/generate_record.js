@@ -8,7 +8,7 @@ const _ = require('lodash');
  * @param {Object} options - Override default values of the record
  * @returns {Object} - The generated record object
  */
-function generateRecord(postObject, options, action) {
+function generateRecord(postObject, preDataAndHash, options, action) {
   action = action || 'create';
 
   postObject.name = randomstring.generate(6);
@@ -19,6 +19,8 @@ function generateRecord(postObject, options, action) {
     action: action,
     post: postObject,
     postHash: getHashForObject(postObject),
+    pre: _.get(preDataAndHash, 'data', null),
+    preHash: _.get(preDataAndHash, 'hash', null),
     timestamp: new Date().getTime()
   };
 
@@ -28,7 +30,7 @@ function generateRecord(postObject, options, action) {
   const recordObjectData = {
     inFlight: true,
     hash: recordObjectHash,
-    uid: recordObjectHash,
+    uid: postObject.id || recordObjectHash,
     inFlightDate: new Date().getTime()
   };
 
