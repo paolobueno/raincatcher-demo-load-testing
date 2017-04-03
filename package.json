@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Load-runner scripts to test the demo cloud app",
   "scripts": {
-    "setup": "node setup/usersWorkorders",
+    "setup": "node setup",
     "local": "node scripts/sync-workflow -a http://localhost:8001 -u trever -p 123",
     "results": "node util/collectResults"
   },
